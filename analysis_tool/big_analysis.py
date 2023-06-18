@@ -1,4 +1,4 @@
-from protobuf_decoder.protobuf_decoder import Parser
+import blackboxprotobuf
 import sys
 import struct
 
@@ -30,9 +30,10 @@ with open("bigdata/bigfile.decomp", "rb") as f:
         print("Size: " + str(protobuf_size) + " bytes")
         sys.stdout.flush()
         protobuf = f.read(protobuf_size)
-        #parsed_data = Parser().parse(protobuf.hex())
-        #for d in parsed_data:
-        #    print(d)
-        #print("HEX")
-        #print(protobuf.hex())
+        message,typedef = blackboxprotobuf.decode_message(protobuf)
+        data = blackboxprotobuf.encode_message(message,typedef)
+        print(str(message))
+        print(str(typedef))
+        print(str(data))
+
     print("Done")
