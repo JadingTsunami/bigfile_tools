@@ -29,26 +29,25 @@ with open("bigdata/bigfile.decomp", "rb") as f, open("bigdata/bigcopy", "wb") as
     for i in range(total_chunks):
         s1len = read7bit(f)
         s1 = f.read(s1len)
-        print(str(s1, 'UTF-8'))
         write7bit(s1len, of)
         of.write(s1)
 
         s2len = read7bit(f)
         s2 = f.read(s2len)
-        print(str(s2, 'UTF-8'))
         write7bit(s2len, of)
         of.write(s2)
 
         protobuf_size = struct.unpack('i', f.read(4))[0]
         protobuf = f.read(protobuf_size)
 
-        of.write(protobuf_size.to_bytes(4,"little"))
-        of.write(protobuf)
 
-        #message,typedef = blackboxprotobuf.decode_message(protobuf)
-        #data = blackboxprotobuf.encode_message(message,typedef)
-        #print(str(message))
-        #print(str(typedef))
-        #print(str(data))
+        if i == 1:
+            message,typedef = blackboxprotobuf.decode_message(protobuf)
+            msg = blackboxprotobuf.encode_message(message,typedef)
 
+            of.write(len(msg).to_bytes(4,"little"))
+            of.write(msg)
+        else:
+            of.write(protobuf_size.to_bytes(4,"little"))
+            of.write(protobuf)
     print("Done")
