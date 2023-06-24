@@ -23,3 +23,5 @@ The basic workflow is:
 ## analysis_tool
 
 Analyzes the content of a bigfile. Very WIP.
+
+Expects you have generated `bigdata/bigfile.decomp` already.
