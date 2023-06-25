@@ -1,105 +1,14 @@
 import blackboxprotobuf
 import sys
 import struct
+import os
 
 # https://gist.github.com/wware/a1d90a3ca3cbef31ed3fbb7002fd1318
 import uuid
 import tkinter as tk
 from tkinter import ttk
-
-
-def close_ed(parent, edwin):
-    parent.focus_set()
-    edwin.destroy()
-
-def set_cell(edwin, w, tvar):
-    global edited
-    edited = True
-    value = tvar.get()
-    w.item(w.focus(), values=(value,))
-    close_ed(w, edwin)
-
-def edit_cell(e):
-    global edited
-    w = e.widget
-    if w and len(w.item(w.focus(), 'values')) > 0:
-        edwin = tk.Toplevel(e.widget)
-        edwin.protocol("WM_DELETE_WINDOW", lambda: close_ed(w, edwin))
-        edwin.wait_visibility()
-        edwin.grab_set()
-        edwin.overrideredirect(1)
-        opt_name = w.focus()
-        (x, y, width, height) = w.bbox(opt_name, 'Values')
-        edwin.geometry('%dx%d+%d+%d' % (width, height, x/4, y))
-        value = w.item(opt_name, 'values')[0]
-        tvar = tk.StringVar()
-        tvar.set(str(value))
-        ed = tk.Entry(edwin, textvariable=tvar)
-        if ed:
-            ed.pack()
-            ed.focus_set()
-        edwin.bind('<Return>', lambda e: set_cell(edwin, w, tvar))
-        edwin.bind('<Escape>', lambda e: close_ed(w, edwin))
-
-
-def build_gui_tree(tree, parent, message):
-    for key in message:
-        uid = uuid.uuid4()
-        if isinstance(message[key], dict):
-            tree.insert(parent, 'end', uid, text=key)
-            build_gui_tree(tree, uid, message[key])
-        elif isinstance(message[key], list):
-            tree.insert(parent, 'end', uid, text=key + '[]')
-            build_gui_tree(tree,
-                     uid,
-                     dict([(i, x) for i, x in enumerate(message[key])]))
-        else:
-            value = message[key]
-            if isinstance(value, str) or isinstance(value, str):
-                value = value.replace(' ', '_')
-            tree.insert(parent, 'end', uid, text=key, value=value)
-
-def gui_exit():
-    global root
-    global done_editing
-    done_editing = True
-    root.destroy()
-
-# adapted from:
-# https://stackoverflow.com/questions/8574070/python-display-a-dict-of-dicts-using-a-ui-tree-for-the-keys-and-any-other-widg
-def gui_init(s1, s2, message):
-    global edited
-    global root
-    root = tk.Tk()
-    root.title("bigfile table editor")
-    root.columnconfigure(0, weight=1)
-    root.rowconfigure(3, weight=1)
-    LabelFrame = ttk.Frame(root)
-    QuitButton = ttk.Button(root, text="Quit", command=gui_exit)
-    NextButton = ttk.Button(root, text="Next Table", command=root.destroy)
-    QuitButton.grid(row=0, column=0)
-    NextButton.grid(row=1, column=0)
-    LabelFrame.grid(row=2, column=0)
-    s1label = ttk.Label(LabelFrame, text=s1)
-    s2label = ttk.Label(LabelFrame, text=s2)
-    s1label.pack()
-    s2label.pack()
-    TreeFrame = ttk.Frame(root, padding="3")
-    TreeFrame.grid(row=3, column=0, sticky=tk.NSEW)
-
-    tree = ttk.Treeview(TreeFrame, columns=('Values'))
-    tree.column('Values', width=100, anchor='center')
-    tree.heading('Values', text='Values')
-    tree.bind('<Double-1>', edit_cell)
-    tree.bind('<Return>', edit_cell)
-    edited = False
-    build_gui_tree(tree, '', message)
-    tree.pack(fill=tk.BOTH, expand=1)
-
-    root.update_idletasks()
-    root.minsize(root.winfo_reqwidth(), root.winfo_reqheight())
-    root.mainloop()
-
+from tkinter import filedialog as fd
+from tkinter import messagebox as mb
 
 def read7bit(f):
     more = True
@@ -121,34 +30,215 @@ def write7bit(val, of):
             b |= 0x80
         of.write(b.to_bytes(1,"little"))
 
+
+# adapted from:
+# https://stackoverflow.com/questions/8574070/python-display-a-dict-of-dicts-using-a-ui-tree-for-the-keys-and-any-other-widg
+class BigFileGui:
+    def __init__(self, bfe):
+        self.root = tk.Tk()
+        self.bfe = bfe
+        self.root.title("bigfile table editor")
+        self.root.columnconfigure(1, weight=1)
+        self.root.rowconfigure(1, weight=1)
+
+        self.TableFrame = ttk.Frame(self.root)
+        self.listbox = tk.Listbox(self.TableFrame)
+        self.scrollbar = ttk.Scrollbar(self.TableFrame)
+        self.listbox.config(yscrollcommand = self.scrollbar.set)
+        self.scrollbar.config(command = self.listbox.yview)
+        self.listbox.pack(side=tk.LEFT, fill=tk.BOTH)
+        self.listbox.bind('<<ListboxSelect>>', self.table_select)
+
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
+        self.TableFrame.grid(row=0, column=0, rowspan=2, sticky=tk.NS)
+
+        self.LabelFrame = ttk.Frame(self.root)
+        self.QuitButton = ttk.Button(self.root, text="Quit", command=self.root.destroy)
+        self.s1 = tk.StringVar()
+        self.s2 = tk.StringVar()
+        self.s1label = ttk.Label(self.LabelFrame, textvariable=self.s1)
+        self.s2label = ttk.Label(self.LabelFrame, textvariable=self.s2)
+        self.s1label.pack()
+        self.s2label.pack()
+        self.QuitButton.grid(row=2, column=1)
+        self.LabelFrame.grid(row=0, column=1)
+
+        self.TreeFrame = ttk.Frame(self.root, padding="3")
+        self.TreeFrame.grid(row=1, column=1, sticky=tk.NSEW)
+
+        self.tree = ttk.Treeview(self.TreeFrame, columns=('Values'))
+        self.tree.column('Values', width=100, anchor='center')
+        self.tree.heading('Values', text='Values')
+        self.tree.bind('<Double-1>', self.edit_cell)
+        self.tree.bind('<Return>', self.edit_cell)
+        self.tree.pack(fill=tk.BOTH, expand=1)
+
+        self.root.update_idletasks()
+        self.root.minsize(self.root.winfo_reqwidth(), self.root.winfo_reqheight())
+
+        self.bfe.import_all_tables()
+        self.list_tables(self.bfe.tables)
+        self.root.mainloop()
+
+    def table_select(self, event):
+        w = event.widget
+        index = int(w.curselection()[0])
+        tsel = w.get(index)
+
+        selected_table = self.bfe.tables[index]
+
+        if not selected_table:
+            mb.showerror("No table found", "Internal error: Table loaded but not found!")
+        else:
+            message = self.bfe.read_table(selected_table)
+            self.s1.set(selected_table['s1'])
+            self.s2.set(selected_table['s2'])
+            self.clear_tree()
+            self.build_gui_tree(self.tree ,'', message)
+
+    def clear_tree(self):
+        for item in self.tree.get_children():
+           self.tree.delete(item)
+
+    def list_tables(self, tables):
+        self.listbox.delete(0,tk.END)
+        for t in tables:
+            self.listbox.insert(tk.END, t['s1'])
+
+    def close_ed(self, parent, edwin):
+        parent.focus_set()
+        edwin.destroy()
+
+    def set_cell(self, edwin, w, tvar):
+        value = tvar.get()
+        w.item(w.focus(), values=(value,))
+        self.close_ed(w, edwin)
+
+    def edit_cell(self, e):
+        w = e.widget
+        if w and len(w.item(w.focus(), 'values')) > 0:
+            edwin = tk.Toplevel(e.widget)
+            edwin.protocol("WM_DELETE_WINDOW", lambda: self.close_ed(w, edwin))
+            edwin.wait_visibility()
+            edwin.grab_set()
+            edwin.overrideredirect(1)
+            opt_name = w.focus()
+            (x, y, width, height) = w.bbox(opt_name, 'Values')
+            edwin.geometry('%dx%d+%d+%d' % (width, height, x/4, y))
+            value = w.item(opt_name, 'values')[0]
+            tvar = tk.StringVar()
+            tvar.set(str(value))
+            ed = tk.Entry(edwin, textvariable=tvar)
+            if ed:
+                ed.pack()
+                ed.focus_set()
+            edwin.bind('<Return>', lambda e: self.set_cell(edwin, w, tvar))
+            edwin.bind('<Escape>', lambda e: self.close_ed(w, edwin))
+
+    def build_gui_tree(self, tree, parent, message):
+        for key in message:
+            uid = uuid.uuid4()
+            if isinstance(message[key], dict):
+                tree.insert(parent, 'end', uid, text=key)
+                self.build_gui_tree(tree, uid, message[key])
+            elif isinstance(message[key], list):
+                tree.insert(parent, 'end', uid, text=key + '[]')
+                self.build_gui_tree(tree,
+                         uid,
+                         dict([(i, x) for i, x in enumerate(message[key])]))
+            else:
+                value = message[key]
+                if isinstance(value, str) or isinstance(value, str):
+                    value = value.replace(' ', '_')
+                tree.insert(parent, 'end', uid, text=key, value=value)
+
+class BigFileEditor:
+    def __init__(self, bigfile_in, bigfile_out):
+        self.fi = open(bigfile_in, "rb")
+        self.fo = open(bigfile_out, "wb")
+        self.total_chunks = 0
+        self.tables = []
+
+    def __del__(self):
+        if not self.fi.closed:
+            self.fi.close()
+        if not self.fo.closed:
+            self.fo.close()
+
+    def read_table(self, tr):
+        if not tr['data']:
+            self.fi.seek(tr['offset'], 0)
+            tr['data'] = self.fi.read(tr['size'])
+        
+        message,typedef = blackboxprotobuf.decode_message(tr['data'])
+        return message
+
+    def import_all_tables(self, read_data=False):
+        self.fi.seek(0,0)
+        self.total_chunks = struct.unpack('i', self.fi.read(4))[0]
+        self.tables = []
+        for i in range(self.total_chunks):
+            s1len = read7bit(self.fi)
+            s1 = self.fi.read(s1len)
+
+            s2len = read7bit(self.fi)
+            s2 = self.fi.read(s2len)
+
+            protobuf_size = struct.unpack('i', self.fi.read(4))[0]
+            offset = self.fi.tell()
+            if read_data:
+                protobuf = self.fi.read(protobuf_size)
+            else:
+                self.fi.seek(protobuf_size, 1)
+                protobuf = None
+
+            self.tables.append({"s1": s1, "s2": s2, "offset": offset, "size": protobuf_size, "data": protobuf, "edited": False})
+
+        
+    def bigfile_readwrite(self):
+        self.fo.seek(0,0)
+        self.fi.seek(0,0)
+        done_editing = True
+        edited = False
+        total_chunks = struct.unpack('i', self.fi.read(4))[0]
+        self.fo.write(total_chunks.to_bytes(4,"little"))
+        for i in range(total_chunks):
+            s1len = read7bit(self.fi)
+            s1 = self.fi.read(s1len)
+            write7bit(s1len, self.fo)
+            self.fo.write(s1)
+
+            s2len = read7bit(self.fi)
+            s2 = self.fi.read(s2len)
+            write7bit(s2len, self.fo)
+            self.fo.write(s2)
+
+            protobuf_size = struct.unpack('i', self.fi.read(4))[0]
+            protobuf = self.fi.read(protobuf_size)
+
+            if not done_editing:
+                message,typedef = blackboxprotobuf.decode_message(protobuf)
+                #gui_init(s1, s2, message)
+                if edited:
+                    msg = blackboxprotobuf.encode_message(message,typedef)
+                    self.fo.write(len(msg).to_bytes(4,"little"))
+                    self.fo.write(msg)
+            else:
+                self.fo.write(protobuf_size.to_bytes(4,"little"))
+                self.fo.write(protobuf)
+
 if __name__ == "__main__":
     global edited
     global done_editing
     done_editing = False
-    with open("bigdata/bigfile.decomp", "rb") as f, open("bigdata/bigfile.mod", "wb") as of:
-        total_chunks = struct.unpack('i', f.read(4))[0]
-        of.write(total_chunks.to_bytes(4,"little"))
-        for i in range(total_chunks):
-            s1len = read7bit(f)
-            s1 = f.read(s1len)
-            write7bit(s1len, of)
-            of.write(s1)
+    bigfile_in = "bigdata/bigfile.decomp"
+    while not os.path.isfile(bigfile_in):
+        bigfile_in = fd.askopenfile(title="Open bigfile.decomp", filetype=(("Decompressed bigfile", "*.decomp")))
 
-            s2len = read7bit(f)
-            s2 = f.read(s2len)
-            write7bit(s2len, of)
-            of.write(s2)
+    bigfile_out = "bigdata/bigfile.mod"
+    while not os.path.isfile(bigfile_out):
+        bigfile_out = fd.asksaveasfilename(title="Write bigfile.mod", filetype=(("Modified bigfile", "*.mod")))
 
-            protobuf_size = struct.unpack('i', f.read(4))[0]
-            protobuf = f.read(protobuf_size)
+    bfe = BigFileEditor(bigfile_in, bigfile_out)
+    bfg = BigFileGui(bfe)
 
-            if not done_editing:
-                message,typedef = blackboxprotobuf.decode_message(protobuf)
-                gui_init(s1, s2, message)
-                if edited:
-                    msg = blackboxprotobuf.encode_message(message,typedef)
-                    of.write(len(msg).to_bytes(4,"little"))
-                    of.write(msg)
-            else:
-                of.write(protobuf_size.to_bytes(4,"little"))
-                of.write(protobuf)
