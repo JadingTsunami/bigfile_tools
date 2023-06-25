@@ -19,12 +19,15 @@ import sys
 import struct
 import os
 
+
 # https://gist.github.com/wware/a1d90a3ca3cbef31ed3fbb7002fd1318
 import uuid
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as fd
 from tkinter import messagebox as mb
+
+import known_types 
 
 def read7bit(f):
     more = True
@@ -86,9 +89,11 @@ class BigFileGui:
         self.TreeFrame = ttk.Frame(self.root, padding="3")
         self.TreeFrame.grid(row=1, column=1, sticky=tk.NSEW)
 
-        self.tree = ttk.Treeview(self.TreeFrame, columns=('Values'))
+        self.tree = ttk.Treeview(self.TreeFrame, columns=('Values', 'Meaning'))
         self.tree.column('Values', width=100, anchor='center')
+        self.tree.column('Meaning', width=60, anchor='e')
         self.tree.heading('Values', text='Values')
+        self.tree.heading('Meaning', text='Meaning')
         self.tree.bind('<Double-1>', self.edit_cell)
         self.tree.bind('<Return>', self.edit_cell)
 
@@ -203,24 +208,27 @@ class BigFileGui:
 
     # adapted from:
     # https://stackoverflow.com/questions/8574070/python-display-a-dict-of-dicts-using-a-ui-tree-for-the-keys-and-any-other-widg
-    def build_gui_tree(self, tree, parent, message):
+    def build_gui_tree(self, tree, parent, message, breadcrumb=None):
+        if not breadcrumb:
+            breadcrumb = [str(self.selected_table['s1'], 'utf-16')]
         for key in message:
             uid = uuid.uuid4()
+            crumb = breadcrumb + [str(key)]
+            meaning = known_types.lookup_type(crumb)
             if isinstance(message[key], dict):
-                tree.insert(parent, 'end', uid, text=key)
+                tree.insert(parent, 'end', uid, text=key, values=('', meaning))
                 self.uuid_lookup[str(uid)] = message[key]
-                self.build_gui_tree(tree, uid, message[key])
+                self.build_gui_tree(tree, uid, message[key], crumb)
             elif isinstance(message[key], list):
-                tree.insert(parent, 'end', uid, text=key + '[]')
+                tree.insert(parent, 'end', uid, text=key + '[]', values=('', meaning))
                 self.uuid_lookup[str(uid)] = message[key]
                 self.build_gui_tree(tree,
                          uid,
-                         dict([(i, x) for i, x in enumerate(message[key])]))
+                         dict([(i, x) for i, x in enumerate(message[key])]),
+                         crumb)
             else:
                 value = message[key]
-                if isinstance(value, str):
-                    value = value.replace(' ', '_')
-                tree.insert(parent, 'end', uid, text=key, value=value)
+                tree.insert(parent, 'end', uid, text=key, value=(value, meaning))
 
 class BigFileEditor:
     def __init__(self, bigfile_in, bigfile_out):
