@@ -31,8 +31,6 @@ def write7bit(val, of):
         of.write(b.to_bytes(1,"little"))
 
 
-# adapted from:
-# https://stackoverflow.com/questions/8574070/python-display-a-dict-of-dicts-using-a-ui-tree-for-the-keys-and-any-other-widg
 class BigFileGui:
     def __init__(self, bfe):
         self.root = tk.Tk()
@@ -42,14 +40,18 @@ class BigFileGui:
         self.root.rowconfigure(1, weight=1)
 
         self.TableFrame = ttk.Frame(self.root)
-        self.listbox = tk.Listbox(self.TableFrame)
+        self.listbox = tk.Listbox(self.TableFrame, width=48, height=32)
         self.scrollbar = ttk.Scrollbar(self.TableFrame)
+        self.scrollbarx = ttk.Scrollbar(self.TableFrame, orient=tk.HORIZONTAL)
         self.listbox.config(yscrollcommand = self.scrollbar.set)
+        self.listbox.config(xscrollcommand = self.scrollbarx.set)
         self.scrollbar.config(command = self.listbox.yview)
-        self.listbox.pack(side=tk.LEFT, fill=tk.BOTH)
+        self.scrollbarx.config(command = self.listbox.xview)
         self.listbox.bind('<<ListboxSelect>>', self.table_select)
 
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
+        self.scrollbarx.pack(side=tk.BOTTOM, fill=tk.BOTH)
+        self.listbox.pack(side=tk.LEFT, fill=tk.BOTH)
         self.TableFrame.grid(row=0, column=0, rowspan=2, sticky=tk.NS)
 
         self.LabelFrame = ttk.Frame(self.root)
@@ -78,6 +80,7 @@ class BigFileGui:
 
         self.bfe.import_all_tables()
         self.list_tables(self.bfe.tables)
+        self.root.geometry('1200x600')
         self.root.mainloop()
 
     def table_select(self, event):
@@ -103,7 +106,7 @@ class BigFileGui:
     def list_tables(self, tables):
         self.listbox.delete(0,tk.END)
         for t in tables:
-            self.listbox.insert(tk.END, t['s1'])
+            self.listbox.insert(tk.END, (t['s1']).decode() + " : " + (t['s2']).decode())
 
     def close_ed(self, parent, edwin):
         parent.focus_set()
@@ -135,6 +138,8 @@ class BigFileGui:
             edwin.bind('<Return>', lambda e: self.set_cell(edwin, w, tvar))
             edwin.bind('<Escape>', lambda e: self.close_ed(w, edwin))
 
+    # adapted from:
+    # https://stackoverflow.com/questions/8574070/python-display-a-dict-of-dicts-using-a-ui-tree-for-the-keys-and-any-other-widg
     def build_gui_tree(self, tree, parent, message):
         for key in message:
             uid = uuid.uuid4()
@@ -170,8 +175,9 @@ class BigFileEditor:
             self.fi.seek(tr['offset'], 0)
             tr['data'] = self.fi.read(tr['size'])
         
-        message,typedef = blackboxprotobuf.decode_message(tr['data'])
-        return message
+        if not tr['message'] or not tr['typedef']:
+            tr['message'],tr['typedef'] = blackboxprotobuf.decode_message(tr['data'])
+        return tr['message']
 
     def import_all_tables(self, read_data=False):
         self.fi.seek(0,0)
@@ -192,9 +198,17 @@ class BigFileEditor:
                 self.fi.seek(protobuf_size, 1)
                 protobuf = None
 
-            self.tables.append({"s1": s1, "s2": s2, "offset": offset, "size": protobuf_size, "data": protobuf, "edited": False})
+            self.tables.append({"s1": s1,
+                                "s1len": s1len,
+                                "s2": s2,
+                                "s2len": s2len,
+                                "offset": offset,
+                                "size": protobuf_size,
+                                "data": protobuf,
+                                "message": None,
+                                "typedef": None,
+                                "edited": False})
 
-        
     def bigfile_readwrite(self):
         self.fo.seek(0,0)
         self.fi.seek(0,0)
