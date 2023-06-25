@@ -56,12 +56,14 @@ class BigFileGui:
 
         self.LabelFrame = ttk.Frame(self.root)
         self.QuitButton = ttk.Button(self.root, text="Quit", command=self.root.destroy)
+        self.SaveButton = ttk.Button(self.root, text="Save Changes", command=self.bfe.export_all_tables)
         self.s1 = tk.StringVar()
         self.s2 = tk.StringVar()
         self.s1label = ttk.Label(self.LabelFrame, textvariable=self.s1)
         self.s2label = ttk.Label(self.LabelFrame, textvariable=self.s2)
         self.s1label.pack()
         self.s2label.pack()
+        self.SaveButton.grid(row=2, column=0)
         self.QuitButton.grid(row=2, column=1)
         self.LabelFrame.grid(row=0, column=1)
 
@@ -73,33 +75,47 @@ class BigFileGui:
         self.tree.heading('Values', text='Values')
         self.tree.bind('<Double-1>', self.edit_cell)
         self.tree.bind('<Return>', self.edit_cell)
+
+        self.tvsb = ttk.Scrollbar(self.TreeFrame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self.tvsb.set)
+        self.thsb = ttk.Scrollbar(self.TreeFrame, orient=tk.HORIZONTAL, command=self.tree.xview)
+        self.tree.configure(xscrollcommand=self.thsb.set)
+
+        self.tvsb.pack(side=tk.RIGHT, fill=tk.BOTH)
+        self.thsb.pack(side=tk.BOTTOM, fill=tk.BOTH)
         self.tree.pack(fill=tk.BOTH, expand=1)
 
         self.root.update_idletasks()
         self.root.minsize(self.root.winfo_reqwidth(), self.root.winfo_reqheight())
 
         self.bfe.import_all_tables()
+        self.uuid_lookup = {}
+        self.selected_table = None
+
         self.list_tables(self.bfe.tables)
         self.root.geometry('1200x600')
         self.root.mainloop()
 
     def table_select(self, event):
         w = event.widget
+        if not w or not w.curselection():
+            return
         index = int(w.curselection()[0])
         tsel = w.get(index)
 
-        selected_table = self.bfe.tables[index]
+        self.selected_table = self.bfe.tables[index]
 
-        if not selected_table:
+        if not self.selected_table:
             mb.showerror("No table found", "Internal error: Table loaded but not found!")
         else:
-            message = self.bfe.read_table(selected_table)
-            self.s1.set(selected_table['s1'])
-            self.s2.set(selected_table['s2'])
+            message = self.bfe.read_table(self.selected_table)
+            self.s1.set(self.selected_table['s1'])
+            self.s2.set(self.selected_table['s2'])
             self.clear_tree()
             self.build_gui_tree(self.tree ,'', message)
 
     def clear_tree(self):
+        self.uuid_lookup = {}
         for item in self.tree.get_children():
            self.tree.delete(item)
 
@@ -114,6 +130,17 @@ class BigFileGui:
 
     def set_cell(self, edwin, w, tvar):
         value = tvar.get()
+        uid = self.tree.focus()
+        if uid not in self.uuid_lookup:
+            uid = self.tree.parent(uid)
+        if uid not in self.uuid_lookup:
+            mb.showerror("Internal Error", "Could not find uid: " + str(uid))
+        if uid in self.uuid_lookup:
+            if value.isnumeric():
+                self.uuid_lookup[uid][w.item(w.focus())['text']] = int(value)
+            else:
+                self.uuid_lookup[uid][w.item(w.focus())['text']] = value
+            self.selected_table['edited'] = True
         w.item(w.focus(), values=(value,))
         self.close_ed(w, edwin)
 
@@ -145,15 +172,17 @@ class BigFileGui:
             uid = uuid.uuid4()
             if isinstance(message[key], dict):
                 tree.insert(parent, 'end', uid, text=key)
+                self.uuid_lookup[str(uid)] = message[key]
                 self.build_gui_tree(tree, uid, message[key])
             elif isinstance(message[key], list):
                 tree.insert(parent, 'end', uid, text=key + '[]')
+                self.uuid_lookup[str(uid)] = message[key]
                 self.build_gui_tree(tree,
                          uid,
                          dict([(i, x) for i, x in enumerate(message[key])]))
             else:
                 value = message[key]
-                if isinstance(value, str) or isinstance(value, str):
+                if isinstance(value, str):
                     value = value.replace(' ', '_')
                 tree.insert(parent, 'end', uid, text=key, value=value)
 
@@ -170,14 +199,35 @@ class BigFileEditor:
         if not self.fo.closed:
             self.fo.close()
 
-    def read_table(self, tr):
+    def read_table(self, tr, decode=True):
         if not tr['data']:
             self.fi.seek(tr['offset'], 0)
             tr['data'] = self.fi.read(tr['size'])
         
-        if not tr['message'] or not tr['typedef']:
+        if decode and (not tr['message'] or not tr['typedef']):
             tr['message'],tr['typedef'] = blackboxprotobuf.decode_message(tr['data'])
         return tr['message']
+
+    def export_all_tables(self):
+        self.fo.seek(0,0)
+        # We never add tables to the list
+        self.fo.write(self.total_chunks.to_bytes(4,"little"))
+        for t in self.tables:
+            # We never change string headers, only data
+            write7bit(t['s1len'], self.fo)
+            self.fo.write(t['s1'])
+            write7bit(t['s2len'], self.fo)
+            self.fo.write(t['s2'])
+
+            if t['edited']:
+                data = blackboxprotobuf.encode_message(t['message'],t['typedef'])
+                self.fo.write(len(data).to_bytes(4,"little"))
+                self.fo.write(data)
+            else:
+                if not t['data']:
+                    self.read_table(t, decode=False)
+                self.fo.write(t['size'].to_bytes(4,"little"))
+                self.fo.write(t['data'])
 
     def import_all_tables(self, read_data=False):
         self.fi.seek(0,0)
@@ -242,9 +292,6 @@ class BigFileEditor:
                 self.fo.write(protobuf)
 
 if __name__ == "__main__":
-    global edited
-    global done_editing
-    done_editing = False
     bigfile_in = "bigdata/bigfile.decomp"
     while not os.path.isfile(bigfile_in):
         bigfile_in = fd.askopenfile(title="Open bigfile.decomp", filetype=(("Decompressed bigfile", "*.decomp")))
