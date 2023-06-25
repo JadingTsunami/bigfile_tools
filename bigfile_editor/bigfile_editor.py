@@ -144,6 +144,11 @@ class BigFileGui:
         w.item(w.focus(), values=(value,))
         self.close_ed(w, edwin)
 
+    def check_edit(self, tvar, label):
+        s = str(tvar.get())
+        if s and s.isnumeric():
+            label.set("As 16.16: " + str(float(int(s) / 65536.0)))
+
     def edit_cell(self, e):
         w = e.widget
         if w and len(w.item(w.focus(), 'values')) > 0:
@@ -153,14 +158,29 @@ class BigFileGui:
             edwin.grab_set()
             edwin.overrideredirect(1)
             opt_name = w.focus()
-            (x, y, width, height) = w.bbox(opt_name, 'Values')
-            edwin.geometry('%dx%d+%d+%d' % (width, height, x/4, y))
+
+            width = self.root.winfo_width()
+            height = self.root.winfo_height()
+            x = (width/2)
+            y = (height/2)
+            edwin.geometry('+%d+%d' % (x, y))
+
+            edframe = tk.Frame(edwin)
             value = w.item(opt_name, 'values')[0]
             tvar = tk.StringVar()
             tvar.set(str(value))
-            ed = tk.Entry(edwin, textvariable=tvar)
+            lvar = tk.StringVar()
+            if str(value).isnumeric():
+                lvar.set("As 16.16: " + str(float(int(value) / 65536.0)))
+            else:
+                lvar.set("Original value: " + str(value))
+            ed = tk.Entry(edframe, textvariable=tvar)
+            label = tk.Label(edframe, textvariable=lvar)
+            tvar.trace("w", lambda name, index, mode, sv=tvar: self.check_edit(tvar, lvar))
             if ed:
+                edframe.pack()
                 ed.pack()
+                label.pack()
                 ed.focus_set()
             edwin.bind('<Return>', lambda e: self.set_cell(edwin, w, tvar))
             edwin.bind('<Escape>', lambda e: self.close_ed(w, edwin))
