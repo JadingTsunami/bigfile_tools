@@ -66,9 +66,14 @@ known_types = {
             "*" : {
                 "6" : {
                     "name": "Hit",
-                    "1" : {
+                    "*" : {
                         "1" : {
-                            "name": "Damage (16.16)"
+                            "1": "Damage (16.16)"
+                        },
+                        "4" : "Hitstop",
+                        "5" : "Hitstun",
+                        "21" : {
+                            "1" : "Sound effect"
                         }
                     }
                 }
