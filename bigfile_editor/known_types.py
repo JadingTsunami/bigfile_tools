@@ -80,12 +80,12 @@ known_types = {
 def lookup_type(crumb):
     kt = ''
     type_lookup = known_types
-    for chunk in crumb:
+    for i,chunk in enumerate(crumb):
         if isinstance(type_lookup, str):
             kt = ''
             type_lookup = {}
             break
-        if chunk in type_lookup:
+        if chunk in type_lookup and (i >= len(crumb)-1 or not isinstance(type_lookup[chunk], str)):
             type_lookup = type_lookup[chunk]
         elif "*" in type_lookup:
             type_lookup = type_lookup["*"]
