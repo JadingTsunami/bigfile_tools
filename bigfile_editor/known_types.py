@@ -46,7 +46,7 @@ known_types = {
             }
         },
         "100": {
-            "name": "Survival unlocks",
+            "name": "Single-player unlocks",
             "*": {
                 "1": "Unlockable",
                 "2": "Required score",
