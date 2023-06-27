@@ -74,7 +74,7 @@ class BigFileGui:
         self.TableFrame.grid(row=0, column=0, rowspan=2, sticky=tk.NS)
 
         self.LabelFrame = ttk.Frame(self.root)
-        self.AddButton = ttk.Button(self.root, text="Append New Node to Array", command=self.add_node)
+        self.AddButton = ttk.Button(self.root, text="Extend Array (+1 Node)", command=self.add_node)
         self.QuitButton = ttk.Button(self.root, text="Quit", command=self.root.destroy)
         self.SaveButton = ttk.Button(self.root, text="Save Changes", command=self.bfe.export_all_tables)
         self.s1 = tk.StringVar()

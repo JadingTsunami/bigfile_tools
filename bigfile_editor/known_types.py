@@ -26,7 +26,16 @@ known_types = {
             "2" : "Cherry Character"
         },
         "14" : {
-            "1" : "Hud Icon"
+            "name": "Single Player Levels",
+            "0" : {
+                "name": "Story Mode Levels",
+                "*": {
+                    "1": "Level Screens",
+                    "5": "Par Time (60 fps tics)",
+                    "6": "Base Par Score"
+                }
+            },
+            "1": "Boss Rush"
         },
         "29": {
             "name": "Difficulty definitions",
