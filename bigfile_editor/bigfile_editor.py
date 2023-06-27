@@ -18,7 +18,7 @@ import blackboxprotobuf
 import sys
 import struct
 import os
-
+import copy
 
 # https://gist.github.com/wware/a1d90a3ca3cbef31ed3fbb7002fd1318
 import uuid
@@ -74,6 +74,7 @@ class BigFileGui:
         self.TableFrame.grid(row=0, column=0, rowspan=2, sticky=tk.NS)
 
         self.LabelFrame = ttk.Frame(self.root)
+        self.AddButton = ttk.Button(self.root, text="Append New Node to Array", command=self.add_node)
         self.QuitButton = ttk.Button(self.root, text="Quit", command=self.root.destroy)
         self.SaveButton = ttk.Button(self.root, text="Save Changes", command=self.bfe.export_all_tables)
         self.s1 = tk.StringVar()
@@ -82,8 +83,9 @@ class BigFileGui:
         self.s2label = ttk.Label(self.LabelFrame, textvariable=self.s2)
         self.s1label.pack()
         self.s2label.pack()
-        self.SaveButton.grid(row=2, column=0)
-        self.QuitButton.grid(row=2, column=1)
+        self.AddButton.grid(row=2, column=1)
+        self.SaveButton.grid(row=3, column=0)
+        self.QuitButton.grid(row=3, column=1)
         self.LabelFrame.grid(row=0, column=1)
 
         self.TreeFrame = ttk.Frame(self.root, padding="3")
@@ -115,7 +117,27 @@ class BigFileGui:
 
         self.list_tables(self.bfe.tables)
         self.root.geometry('1200x600')
+        self.user_is_expert = False
         self.root.mainloop()
+
+    def add_node(self):
+        if not self.selected_table or not self.tree or not self.tree.focus():
+            return
+
+        self.user_is_expert = mb.askyesno("Are you sure?", "Are you absolutely sure you know what this does?\nYou really shouldn't use this if you aren't sure!")
+
+        if not self.user_is_expert:
+            return
+
+        uid = self.tree.focus()
+        if uid not in self.uuid_lookup or not isinstance(self.uuid_lookup[uid], list):
+            mb.showerror("Error", "Can't add nodes to an endpoint (select an array instead).")
+            return
+        else:
+            self.uuid_lookup[uid].append(copy.deepcopy(self.uuid_lookup[uid][-1]))
+            self.selected_table['edited'] = True
+            self.clear_tree()
+            self.build_gui_tree(self.tree ,'', self.selected_table['message'])
 
     def table_select(self, event):
         w = event.widget
