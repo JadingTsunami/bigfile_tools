@@ -130,11 +130,26 @@ class BigFileGui:
             return
 
         uid = self.tree.focus()
-        if uid not in self.uuid_lookup or not isinstance(self.uuid_lookup[uid], list):
+        node_text = self.tree.item(self.tree.focus())['text']
+        node_is_array = isinstance(node_text, str) and node_text.endswith('[]')
+
+        if uid not in self.uuid_lookup or not node_is_array:
+            uid = self.tree.parent(uid)
+
+        if uid not in self.uuid_lookup:
+            mb.showerror("Error", "Could not find uuid for node (internal error)")
+            return
+
+        if not node_is_array and len(self.tree.item(self.tree.focus(), 'values')) > 0 and self.tree.item(self.tree.focus(), 'values')[1] is not None:
+            model_node = self.uuid_lookup[uid][node_text]
+        else:
+            model_node = copy.deepcopy(self.uuid_lookup[uid][-1])
+        
+        if not isinstance(self.uuid_lookup[uid], list):
             mb.showerror("Error", "Can't add nodes to an endpoint (select an array instead).")
             return
         else:
-            self.uuid_lookup[uid].append(copy.deepcopy(self.uuid_lookup[uid][-1]))
+            self.uuid_lookup[uid].append(model_node)
             self.selected_table['edited'] = True
             self.clear_tree()
             self.build_gui_tree(self.tree ,'', self.selected_table['message'])
@@ -324,38 +339,6 @@ class BigFileEditor:
                                 "message": None,
                                 "typedef": None,
                                 "edited": False})
-
-    def bigfile_readwrite(self):
-        self.fo.seek(0,0)
-        self.fi.seek(0,0)
-        done_editing = True
-        edited = False
-        total_chunks = struct.unpack('i', self.fi.read(4))[0]
-        self.fo.write(total_chunks.to_bytes(4,"little"))
-        for i in range(total_chunks):
-            s1len = read7bit(self.fi)
-            s1 = self.fi.read(s1len)
-            write7bit(s1len, self.fo)
-            self.fo.write(s1)
-
-            s2len = read7bit(self.fi)
-            s2 = self.fi.read(s2len)
-            write7bit(s2len, self.fo)
-            self.fo.write(s2)
-
-            protobuf_size = struct.unpack('i', self.fi.read(4))[0]
-            protobuf = self.fi.read(protobuf_size)
-
-            if not done_editing:
-                message,typedef = blackboxprotobuf.decode_message(protobuf)
-                #gui_init(s1, s2, message)
-                if edited:
-                    msg = blackboxprotobuf.encode_message(message,typedef)
-                    self.fo.write(len(msg).to_bytes(4,"little"))
-                    self.fo.write(msg)
-            else:
-                self.fo.write(protobuf_size.to_bytes(4,"little"))
-                self.fo.write(protobuf)
 
 if __name__ == "__main__":
     bigfile_in = "bigdata/bigfile.decomp"
