@@ -180,7 +180,7 @@ class BigFileGui:
     def list_tables(self, tables):
         self.listbox.delete(0,tk.END)
         for t in tables:
-            self.listbox.insert(tk.END, (t['s1']).decode() + " : " + (t['s2']).decode())
+            self.listbox.insert(tk.END, (t['s1']).decode('utf-16') + " : " + (t['s2']).decode('utf-16'))
 
     def close_ed(self, parent, edwin):
         parent.focus_set()
@@ -191,14 +191,22 @@ class BigFileGui:
         uid = self.tree.focus()
         if uid not in self.uuid_lookup:
             uid = self.tree.parent(uid)
-        if uid not in self.uuid_lookup:
-            mb.showerror("Internal Error", "Could not find uid: " + str(uid))
         if uid in self.uuid_lookup:
             if value.isnumeric():
                 self.uuid_lookup[uid][w.item(w.focus())['text']] = int(value)
             else:
                 self.uuid_lookup[uid][w.item(w.focus())['text']] = value
             self.selected_table['edited'] = True
+        else if w.item(w.focus())['text'] not in self.selected_table['message']:
+            mb.showerror("Internal Error", "Unknown node being edited; internal error.")
+        else:
+            # top-level (not in uid lookup)
+            if value.isnumeric():
+                self.selected_table['message'][w.item(w.focus())['text']] = int(value)
+            else:
+                self.selected_table['message'][w.item(w.focus())['text']] = value
+            self.selected_table['edited'] = True
+
         w.item(w.focus(), values=(value,))
         self.close_ed(w, edwin)
 
