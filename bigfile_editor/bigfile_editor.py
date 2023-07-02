@@ -197,7 +197,7 @@ class BigFileGui:
             else:
                 self.uuid_lookup[uid][w.item(w.focus())['text']] = value
             self.selected_table['edited'] = True
-        else if w.item(w.focus())['text'] not in self.selected_table['message']:
+        elif w.item(w.focus())['text'] not in self.selected_table['message']:
             mb.showerror("Internal Error", "Unknown node being edited; internal error.")
         else:
             # top-level (not in uid lookup)
