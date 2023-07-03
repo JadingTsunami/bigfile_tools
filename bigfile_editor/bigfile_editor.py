@@ -59,18 +59,19 @@ class BigFileGui:
         self.root.rowconfigure(1, weight=1)
 
         self.TableFrame = ttk.Frame(self.root)
-        self.listbox = tk.Listbox(self.TableFrame, width=48, height=32)
+        self.tabletree = ttk.Treeview(self.TableFrame)
         self.scrollbar = ttk.Scrollbar(self.TableFrame)
         self.scrollbarx = ttk.Scrollbar(self.TableFrame, orient=tk.HORIZONTAL)
-        self.listbox.config(yscrollcommand = self.scrollbar.set)
-        self.listbox.config(xscrollcommand = self.scrollbarx.set)
-        self.scrollbar.config(command = self.listbox.yview)
-        self.scrollbarx.config(command = self.listbox.xview)
-        self.listbox.bind('<<ListboxSelect>>', self.table_select)
+        self.tabletree.config(yscrollcommand = self.scrollbar.set)
+        self.tabletree.config(xscrollcommand = self.scrollbarx.set)
+        self.tabletree.column("#0", width=384, minwidth=512, stretch=True)
+        self.scrollbar.config(command = self.tabletree.yview)
+        self.scrollbarx.config(command = self.tabletree.xview)
+        self.tabletree.bind('<ButtonRelease-1>', self.select_table)
 
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
         self.scrollbarx.pack(side=tk.BOTTOM, fill=tk.BOTH)
-        self.listbox.pack(side=tk.LEFT, fill=tk.BOTH)
+        self.tabletree.pack(side=tk.LEFT, fill=tk.BOTH)
         self.TableFrame.grid(row=0, column=0, rowspan=2, sticky=tk.NS)
 
         self.LabelFrame = ttk.Frame(self.root)
@@ -115,7 +116,7 @@ class BigFileGui:
         self.uuid_lookup = {}
         self.selected_table = None
 
-        self.list_tables(self.bfe.tables)
+        self.build_table_tree(self.bfe.tables)
         self.root.geometry('1200x600')
         self.user_is_expert = False
         self.root.mainloop()
@@ -154,14 +155,12 @@ class BigFileGui:
             self.clear_tree()
             self.build_gui_tree(self.tree ,'', self.selected_table['message'])
 
-    def table_select(self, event):
-        w = event.widget
-        if not w or not w.curselection():
+    def select_table(self, event):
+        uid = self.tabletree.focus()
+        if uid not in self.table_uuids:
             return
-        index = int(w.curselection()[0])
-        tsel = w.get(index)
-
-        self.selected_table = self.bfe.tables[index]
+        else:
+            self.selected_table = self.table_uuids[uid]
 
         if not self.selected_table:
             mb.showerror("No table found", "Internal error: Table loaded but not found!")
@@ -177,10 +176,25 @@ class BigFileGui:
         for item in self.tree.get_children():
            self.tree.delete(item)
 
-    def list_tables(self, tables):
-        self.listbox.delete(0,tk.END)
+    def clear_tables(self):
+        self.table_uuids = {}
+        self.table_tree_s1_to_uid = {}
+        for item in self.tabletree.get_children():
+            self.tabletree.delete(item)
+
+    def build_table_tree(self, tables):
+        self.clear_tables()
         for t in tables:
-            self.listbox.insert(tk.END, (t['s1']).decode('utf-16') + " : " + (t['s2']).decode('utf-16'))
+            s1 = t['s1'].decode('utf-16')
+            s2 = t['s2'].decode('utf-16')
+            if s1 not in self.table_tree_s1_to_uid:
+                s1uid = uuid.uuid4()
+                self.tabletree.insert('', 'end', s1uid, text=s1)
+                self.table_tree_s1_to_uid[s1] = s1uid
+            parent = self.table_tree_s1_to_uid[s1]
+            s2uid = uuid.uuid4()
+            self.table_uuids[str(s2uid)] = t
+            self.tabletree.insert(parent, 'end', s2uid, text=s2)
 
     def close_ed(self, parent, edwin):
         parent.focus_set()
