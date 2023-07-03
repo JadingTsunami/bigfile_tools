@@ -74,17 +74,25 @@ class BigFileGui:
         self.tabletree.pack(side=tk.LEFT, fill=tk.BOTH)
         self.TableFrame.grid(row=0, column=0, rowspan=2, sticky=tk.NS)
 
-        self.LabelFrame = ttk.Frame(self.root)
-        self.AddButton = ttk.Button(self.root, text="Extend Array (+1 Node)", command=self.add_node)
+        self.TreeButtonFrame = ttk.Frame(self.root)
+        self.AddButton = ttk.Button(self.TreeButtonFrame, text="Extend Array (+1 Node)", command=self.add_node)
+        self.TreeExpandButton = ttk.Button(self.TreeButtonFrame, text="Expand Below", command=self.expand_subnodes)
+        self.TreeCollapseButton = ttk.Button(self.TreeButtonFrame, text="Collapse Below", command=self.collapse_subnodes)
         self.QuitButton = ttk.Button(self.root, text="Quit", command=self.root.destroy)
         self.SaveButton = ttk.Button(self.root, text="Save Changes", command=self.bfe.export_all_tables)
+
+        self.TreeExpandButton.grid(row=0, column=0)
+        self.TreeCollapseButton.grid(row=0, column=1)
+        self.AddButton.grid(row=0, column=2)
+        self.TreeButtonFrame.grid(row=2, column=1)
+
+        self.LabelFrame = ttk.Frame(self.root)
         self.s1 = tk.StringVar()
         self.s2 = tk.StringVar()
         self.s1label = ttk.Label(self.LabelFrame, textvariable=self.s1)
         self.s2label = ttk.Label(self.LabelFrame, textvariable=self.s2)
         self.s1label.pack()
         self.s2label.pack()
-        self.AddButton.grid(row=2, column=1)
         self.SaveButton.grid(row=3, column=0)
         self.QuitButton.grid(row=3, column=1)
         self.LabelFrame.grid(row=0, column=1)
@@ -120,6 +128,17 @@ class BigFileGui:
         self.root.geometry('1200x600')
         self.user_is_expert = False
         self.root.mainloop()
+
+    def set_subnodes_state(self, subtree, parent, openstate=True):
+        subtree.item(parent, open=openstate)
+        for child in subtree.get_children(parent):
+            self.set_subnodes_state(subtree, child, openstate)
+        
+    def expand_subnodes(self):
+        self.set_subnodes_state(self.tree, self.tree.focus(), openstate=True)
+
+    def collapse_subnodes(self):
+        self.set_subnodes_state(self.tree, self.tree.focus(), openstate=False)
 
     def add_node(self):
         if not self.selected_table or not self.tree or not self.tree.focus():
