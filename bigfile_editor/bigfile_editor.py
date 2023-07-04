@@ -292,6 +292,8 @@ class BigFileGui:
 
     def set_cell(self, edwin, w, tvar):
         value = tvar.get()
+        if value:
+            value = value.strip()
         uid = self.tree.focus()
         if uid not in self.uuid_lookup:
             uid = self.tree.parent(uid)
