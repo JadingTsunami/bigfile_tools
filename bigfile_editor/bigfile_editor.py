@@ -19,6 +19,8 @@ import sys
 import struct
 import os
 import copy
+import zlib
+import tempfile
 
 # https://gist.github.com/wware/a1d90a3ca3cbef31ed3fbb7002fd1318
 import uuid
@@ -28,6 +30,18 @@ from tkinter import filedialog as fd
 from tkinter import messagebox as mb
 
 import known_types 
+
+def deflate(data, compresslevel=9):
+    compress = zlib.compressobj(compresslevel, zlib.DEFLATED, -zlib.MAX_WBITS, zlib.DEF_MEM_LEVEL, 0)
+    deflated = compress.compress(data)
+    deflated += compress.flush()
+    return deflated
+
+def inflate(data):
+    decompress = zlib.decompressobj(-zlib.MAX_WBITS)
+    inflated = decompress.decompress(data)
+    inflated += decompress.flush()
+    return inflated
 
 def read7bit(f):
     more = True
@@ -79,8 +93,21 @@ class BigFileGui:
         self.TreeExpandButton = ttk.Button(self.TreeButtonFrame, text="Expand Below", command=self.expand_subnodes)
         self.TreeCollapseButton = ttk.Button(self.TreeButtonFrame, text="Collapse Below", command=self.collapse_subnodes)
         self.QuitButton = ttk.Button(self.root, text="Quit", command=self.root.destroy)
-        self.SaveButton = ttk.Button(self.root, text="Save Changes", command=self.bfe.export_all_tables)
 
+        self.util_buttons = [self.AddButton, self.TreeExpandButton, self.TreeCollapseButton]
+        self.set_util_buttons_enabled(False)
+
+        self.FileButtonFrame = ttk.Frame(self.root)
+        self.ImportCompressedBigfileButton = ttk.Button(self.FileButtonFrame, text="Import COMPRESSED Bigfile", command=self.import_compressed_bigfile)
+        self.ImportUncompressedBigfileButton = ttk.Button(self.FileButtonFrame, text="Import UNCOMPRESSED Bigfile", command=self.import_uncompressed_bigfile)
+        self.ExportCompressedBigfileButton = ttk.Button(self.FileButtonFrame, text="Export COMPRESSED Bigfile", command=self.export_compressed_bigfile)
+        self.ExportUncompressedBigfileButton = ttk.Button(self.FileButtonFrame, text="Export UNCOMPRESSED Bigfile", command=self.export_uncompressed_bigfile)
+
+        self.ImportCompressedBigfileButton.grid(row=0, column=0)
+        self.ImportUncompressedBigfileButton.grid(row=0, column=1) 
+        self.ExportUncompressedBigfileButton.grid(row=0, column=2)
+        self.ExportCompressedBigfileButton.grid(row=0, column=3) 
+        
         self.TreeExpandButton.grid(row=0, column=0)
         self.TreeCollapseButton.grid(row=0, column=1)
         self.AddButton.grid(row=0, column=2)
@@ -93,8 +120,8 @@ class BigFileGui:
         self.s2label = ttk.Label(self.LabelFrame, textvariable=self.s2)
         self.s1label.pack()
         self.s2label.pack()
-        self.SaveButton.grid(row=3, column=0)
-        self.QuitButton.grid(row=3, column=1)
+        self.FileButtonFrame.grid(row=3, column=0, columnspan=2)
+        self.QuitButton.grid(row=4, column=1, sticky=tk.E)
         self.LabelFrame.grid(row=0, column=1)
 
         self.TreeFrame = ttk.Frame(self.root, padding="3")
@@ -120,14 +147,43 @@ class BigFileGui:
         self.root.update_idletasks()
         self.root.minsize(self.root.winfo_reqwidth(), self.root.winfo_reqheight())
 
-        self.bfe.import_all_tables()
         self.uuid_lookup = {}
         self.selected_table = None
 
-        self.build_table_tree(self.bfe.tables)
         self.root.geometry('1200x600')
         self.user_is_expert = False
         self.root.mainloop()
+
+    def import_compressed_bigfile(self):
+        inf = fd.askopenfilename(parent=self.root, title="Import Compressed Bigfile")
+        if inf:
+            self.bfe.read_compressed_bigfile(inf)
+            self.set_util_buttons_enabled(True)
+            self.build_table_tree(self.bfe.tables)
+
+    def import_uncompressed_bigfile(self):
+        inf = fd.askopenfilename(parent=self.root, title="Import Uncompressed Bigfile")
+        if inf:
+            self.bfe.read_uncompressed_bigfile(inf)
+            self.set_util_buttons_enabled(True)
+            self.build_table_tree(self.bfe.tables)
+
+    def export_compressed_bigfile(self):
+        ouf = fd.asksaveasfilename(parent=self.root, title="Export Compressed Bigfile")
+        if ouf:
+            self.bfe.write_compressed_bigfile(ouf)
+
+    def export_uncompressed_bigfile(self):
+        ouf = fd.asksaveasfilename(parent=self.root, title="Export Uncompressed Bigfile")
+        if ouf:
+            self.bfe.write_uncompressed_bigfile(ouf)
+
+    def set_util_buttons_enabled(self, state):
+        for button in self.util_buttons:
+            if state:
+                button.state(['!disabled'])
+            else:
+                button.state(['disabled'])
 
     def set_subnodes_state(self, subtree, parent, openstate=True):
         subtree.item(parent, open=openstate)
@@ -196,6 +252,7 @@ class BigFileGui:
            self.tree.delete(item)
 
     def clear_tables(self):
+        self.clear_tree()
         self.table_uuids = {}
         self.table_tree_s1_to_uid = {}
         for item in self.tabletree.get_children():
@@ -309,65 +366,90 @@ class BigFileGui:
                 tree.insert(parent, 'end', uid, text=key, value=(value, meaning))
 
 class BigFileEditor:
-    def __init__(self, bigfile_in, bigfile_out):
-        self.fi = open(bigfile_in, "rb")
-        self.fo = open(bigfile_out, "wb")
+    def __init__(self):
         self.total_chunks = 0
         self.tables = []
+        self.infile = None
 
-    def __del__(self):
-        if not self.fi.closed:
-            self.fi.close()
-        if not self.fo.closed:
-            self.fo.close()
+    def read_compressed_bigfile(self, filename):
+        self._read_bigfile(filename, True)
 
+    def read_uncompressed_bigfile(self, filename):
+        self._read_bigfile(filename, False)
+
+    def _read_bigfile(self, filename, compressed=True):
+        with open(filename, "rb") as cb:
+            if compressed:
+                data = cb.read()
+                data = inflate(data)
+                cb = tempfile.TemporaryFile()
+                cb.write(data)
+            self.import_all_tables(cb)
+            self.infile = filename
+
+    def write_compressed_bigfile(self, filename):
+        self._write_bigfile(filename, True)
+
+    def write_uncompressed_bigfile(self, filename):
+        with open(filename, "wb") as cb:
+            self.export_all_tables(filename)
+
+    def _write_bigfile(self, filename, compressed=True):
+        t = tempfile.TemporaryFile()
+        self.export_all_tables(t)
+        t.seek(0,0)
+        data = t.read()
+        with open(filename, "wb") as f:
+            f.write(deflate(data))
+        
     def read_table(self, tr, decode=True):
         if not tr['data']:
-            self.fi.seek(tr['offset'], 0)
-            tr['data'] = self.fi.read(tr['size'])
+            with open(self.infile, "rb") as f:
+                f.seek(tr['offset'], 0)
+                tr['data'] = f.read(tr['size'])
         
         if decode and (not tr['message'] or not tr['typedef']):
             tr['message'],tr['typedef'] = blackboxprotobuf.decode_message(tr['data'])
         return tr['message']
 
-    def export_all_tables(self):
-        self.fo.seek(0,0)
+    def export_all_tables(self, outfile):
+        outfile.seek(0,0)
         # We never add tables to the list
-        self.fo.write(self.total_chunks.to_bytes(4,"little"))
+        outfile.write(self.total_chunks.to_bytes(4,"little"))
         for t in self.tables:
             # We never change string headers, only data
-            write7bit(t['s1len'], self.fo)
-            self.fo.write(t['s1'])
-            write7bit(t['s2len'], self.fo)
-            self.fo.write(t['s2'])
+            write7bit(t['s1len'], outfile)
+            outfile.write(t['s1'])
+            write7bit(t['s2len'], outfile)
+            outfile.write(t['s2'])
 
             if t['edited']:
                 data = blackboxprotobuf.encode_message(t['message'],t['typedef'])
-                self.fo.write(len(data).to_bytes(4,"little"))
-                self.fo.write(data)
+                outfile.write(len(data).to_bytes(4,"little"))
+                outfile.write(data)
             else:
                 if not t['data']:
                     self.read_table(t, decode=False)
-                self.fo.write(t['size'].to_bytes(4,"little"))
-                self.fo.write(t['data'])
+                outfile.write(t['size'].to_bytes(4,"little"))
+                outfile.write(t['data'])
 
-    def import_all_tables(self, read_data=False):
-        self.fi.seek(0,0)
-        self.total_chunks = struct.unpack('i', self.fi.read(4))[0]
+    def import_all_tables(self, f, read_data=True):
+        f.seek(0,0)
+        self.total_chunks = struct.unpack('i', f.read(4))[0]
         self.tables = []
         for i in range(self.total_chunks):
-            s1len = read7bit(self.fi)
-            s1 = self.fi.read(s1len)
+            s1len = read7bit(f)
+            s1 = f.read(s1len)
 
-            s2len = read7bit(self.fi)
-            s2 = self.fi.read(s2len)
+            s2len = read7bit(f)
+            s2 = f.read(s2len)
 
-            protobuf_size = struct.unpack('i', self.fi.read(4))[0]
-            offset = self.fi.tell()
+            protobuf_size = struct.unpack('i', f.read(4))[0]
+            offset = f.tell()
             if read_data:
-                protobuf = self.fi.read(protobuf_size)
+                protobuf = f.read(protobuf_size)
             else:
-                self.fi.seek(protobuf_size, 1)
+                f.seek(protobuf_size, 1)
                 protobuf = None
 
             self.tables.append({"s1": s1,
@@ -382,14 +464,6 @@ class BigFileEditor:
                                 "edited": False})
 
 if __name__ == "__main__":
-    bigfile_in = "bigdata/bigfile.decomp"
-    while not os.path.isfile(bigfile_in):
-        bigfile_in = fd.askopenfile(title="Open bigfile.decomp", filetype=(("Decompressed bigfile", "*.decomp")))
-
-    bigfile_out = "bigdata/bigfile.mod"
-    while not os.path.isfile(bigfile_out):
-        bigfile_out = fd.asksaveasfilename(title="Write bigfile.mod", filetype=(("Modified bigfile", "*.mod")))
-
-    bfe = BigFileEditor(bigfile_in, bigfile_out)
+    bfe = BigFileEditor()
     bfg = BigFileGui(bfe)
 
