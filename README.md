@@ -4,27 +4,31 @@ Various tools for dealing with the SoR4 bigfile
 
 ## !! WARNING !!
 
-**This program does not provide guardrails! You can easily break your game's data and cause it to crash on start-up. Always back up all files before replacing them. Use at your own risk!**
+**This program does not provide guardrails! You can easily break your game's data and cause it to crash on start-up. Always back up all files and ALL GAME DATA before editing or replacing any files. Use at your own risk!**
+
+ **BACK UP ALL YOUR DATA BEFORE MAKING ANY CHANGES!!**
 
 ## BASIC INSTRUCTIONS
 
 1. Clone this repo.
-2. Copy your `bigfile` to a subfolder named `bigdata`.
-3. In a terminal, run the compression tool from within the `bigdata` subfolder:
-    - `dotnet run --project ../compression_tool`
-    - This will decompress your `bigfile` to `bigfile.decomp`
-4. Edit the bigfile and save as `bigfile.mod`
-    - The bigfile editor tool will do this for you when you click "save"
-    - See **important notes** in the editor section.
-5. In a terminal, re-run the compression tool from within the `bigdata` subfolder:
-    - `dotnet run --project ../compression_tool`
-    - This will recompress your `bigfile.mod` to `bigfile.recomp`
-6. **BACK UP YOUR GAME'S ORIGINAL BIGFILE**
-7. Replace your game bigfile with `bigfile.recomp`
-8. Try out your changes in-game!
-    - To make additional edits, repeat these steps starting at step 2.
+2. Copy your game `bigfile` to a working area of your choice.
+    * Make a backup of your game's `bigfile` just in case!
+3. Load your `bigfile` into the editor and edit.
 
 # Tool Summary
+
+## bigfile_editor
+
+Edits the content of a bigfile. Very WIP.
+
+* Imports and exports game-ready **compressed** bigfiles.
+* Imports and exports **uncompressed** bigfiles which load/save faster and can be manually edited in a hex editor.
+
+After import, the game data tables appear on the left side of the GUI. Expand the tree and select a table to show its data as a tree structure on the right side panels. Double-click entries to edit them.
+
+Only a small amount of game data is annotated at this time, but if the data in a table is believed to be understood, a description will show in the "Meaning" column. More can be added, so if you discover the purpose of a field, feel free to suggest updates.
+
+* **WARNING!!** Editing game data can be unpredictable. The tool uses a "best guess" about the game data, which may or may not result in game crashes, data corruption or loss, and so on. **BACK UP ALL YOUR DATA BEFORE MAKING ANY CHANGES!!**
 
 ## compression_tool
 
@@ -43,12 +47,3 @@ The basic workflow is:
 3. Recompress your bigfile (bigfile.mod &rarr; bigfile.recomp)
 4. Replace your game bigfile with bigfile.recomp.
     * Make sure to back up your original bigfile first.
-
-## bigfile_editor
-
-Edits the content of a bigfile. Very WIP.
-
-Expects you have generated `bigdata/bigfile.decomp` already.
-
-**Important note**: The editor **reads** from `bigfile.decomp` and **writes** to `bigfile.mod` so you can keep your edits and your decompressed bigfile separate. This means if you make some edits, save, exit, then re-launch the editor, it will look like your previous session's changes have disappeared, but they haven't: they are stored in `bigfile.mod`. You can optionally replace your `bigfile.decomp` with your edited `bigfile.mod`. But the expected use model is the step-by-step "loop" at the beginning of this readme where you test your changes in-game in between editing sessions. This would also help you determine if a specific change broke the game, and allow you to more easily "rewind" back and try a different change instead.
-
