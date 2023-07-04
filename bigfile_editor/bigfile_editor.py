@@ -170,8 +170,8 @@ class BigFileGui:
                     self.bfe.read_uncompressed_bigfile(inf)
                 self.set_util_buttons_enabled(True)
                 self.build_table_tree(self.bfe.tables)
-            except:
-                mb.showerror("Error importing file", "Error importing big file.\nDid you choose the right file?")
+            except Exception as e:
+                mb.showerror("Error importing file", "Error importing big file.\nDid you choose the right file?\nException details:\n" + str(e))
                 self.clear_tables()
                 self.set_util_buttons_enabled(False)
 
@@ -189,8 +189,8 @@ class BigFileGui:
                     self.bfe.write_compressed_bigfile(ouf)
                 else:
                     self.bfe.write_uncompressed_bigfile(ouf)
-            except:
-                mb.showerror("Error exporting file", "Error exporting bigfile.\nDo you have write permissions and enough drive space?")
+            except Exception as e:
+                mb.showerror("Error exporting file", "Error exporting bigfile.\nDo you have write permissions and enough drive space?\nException details:\n" + str(e))
 
     def set_util_buttons_enabled(self, state):
         for button in self.util_buttons:
@@ -255,8 +255,8 @@ class BigFileGui:
             mb.showerror("No table found", "Internal error: Table loaded but not found!")
         else:
             message = self.bfe.read_table(self.selected_table)
-            self.s1.set(self.selected_table['s1'])
-            self.s2.set(self.selected_table['s2'])
+            self.s1.set(self.selected_table['s1'].decode('utf-16'))
+            self.s2.set(self.selected_table['s2'].decode('utf-16'))
             self.clear_tree()
             self.build_gui_tree(self.tree ,'', message)
 
