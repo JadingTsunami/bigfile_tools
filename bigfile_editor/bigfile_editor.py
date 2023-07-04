@@ -155,28 +155,42 @@ class BigFileGui:
         self.root.mainloop()
 
     def import_compressed_bigfile(self):
-        inf = fd.askopenfilename(parent=self.root, title="Import Compressed Bigfile")
-        if inf:
-            self.bfe.read_compressed_bigfile(inf)
-            self.set_util_buttons_enabled(True)
-            self.build_table_tree(self.bfe.tables)
+        self._import_bigfile(True)
 
     def import_uncompressed_bigfile(self):
-        inf = fd.askopenfilename(parent=self.root, title="Import Uncompressed Bigfile")
+        self._import_bigfile(False)
+                
+    def _import_bigfile(self, compressed):
+        inf = fd.askopenfilename(parent=self.root, title="Import Compressed Bigfile")
         if inf:
-            self.bfe.read_uncompressed_bigfile(inf)
-            self.set_util_buttons_enabled(True)
-            self.build_table_tree(self.bfe.tables)
+            try:
+                if compressed:
+                    self.bfe.read_compressed_bigfile(inf)
+                else:
+                    self.bfe.read_uncompressed_bigfile(inf)
+                self.set_util_buttons_enabled(True)
+                self.build_table_tree(self.bfe.tables)
+            except:
+                mb.showerror("Error importing file", "Error importing big file.\nDid you choose the right file?")
+                self.clear_tables()
+                self.set_util_buttons_enabled(False)
 
     def export_compressed_bigfile(self):
-        ouf = fd.asksaveasfilename(parent=self.root, title="Export Compressed Bigfile")
-        if ouf:
-            self.bfe.write_compressed_bigfile(ouf)
+        self._export_bigfile(True)
 
     def export_uncompressed_bigfile(self):
+        self._export_bigfile(False)
+    
+    def _export_bigfile(self, compressed):
         ouf = fd.asksaveasfilename(parent=self.root, title="Export Uncompressed Bigfile")
         if ouf:
-            self.bfe.write_uncompressed_bigfile(ouf)
+            try:
+                if compressed:
+                    self.bfe.write_compressed_bigfile(ouf)
+                else:
+                    self.bfe.write_uncompressed_bigfile(ouf)
+            except:
+                mb.showerror("Error exporting file", "Error exporting bigfile.\nDo you have write permissions and enough drive space?")
 
     def set_util_buttons_enabled(self, state):
         for button in self.util_buttons:
@@ -388,19 +402,17 @@ class BigFileEditor:
             self.infile = filename
 
     def write_compressed_bigfile(self, filename):
-        self._write_bigfile(filename, True)
-
-    def write_uncompressed_bigfile(self, filename):
-        with open(filename, "wb") as cb:
-            self.export_all_tables(filename)
-
-    def _write_bigfile(self, filename, compressed=True):
         t = tempfile.TemporaryFile()
         self.export_all_tables(t)
         t.seek(0,0)
         data = t.read()
         with open(filename, "wb") as f:
             f.write(deflate(data))
+        t.close()
+
+    def write_uncompressed_bigfile(self, filename):
+        with open(filename, "wb") as cb:
+            self.export_all_tables(cb)
         
     def read_table(self, tr, decode=True):
         if not tr['data']:
