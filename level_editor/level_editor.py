@@ -25,9 +25,9 @@ from tkinter import ttk
 from tkinter import filedialog as fd
 from tkinter import messagebox as mb
 
-from enum import Enum
+from enum import IntEnum
 
-class WireType(Enum):
+class WireType(IntEnum):
     VARINT = 0
     I64 = 1
     LEN = 2
@@ -59,6 +59,12 @@ class DataSpooler:
     def tell(self):
         return self.ptr
 
+    def has_more(self):
+        return self.ptr < self.len
+
+    def _clip_bounds(self):
+        self.ptr = max(0, min(self.ptr, self.len))
+
     def seek(self, where, whence):
         if whence == 0:
             self.ptr = where
@@ -66,32 +72,53 @@ class DataSpooler:
             self.ptr = self.ptr + where
         elif whence == 2:
             self.ptr = self.len + where
+        self._clip_bounds()
 
-def read_varint(data, index):
+def read_varint(data, dataspool):
+    return read_varint_raw(data, dataspool.tell(), dataspool)
+
+def read_varint_raw(data, index, dataspool=None):
     assert index < len(data) and index >= 0
     varint = data[index] & 0x7F
     more = data[index] & 0x80
+    index += 1
     while more:
-        index += 1
         assert index < len(data)
         varint = ((data[index] & 0x7F) << 7) | (varint)
         more = data[index] & 0x80
+        index += 1
+    if dataspool:
+        dataspool.seek(index,0)
     return varint
 
-def read_tag(data, index):
+def read_tag(data, index, dataspool=None):
     assert index < len(data) and index >= 0
-    v = read_varint(data, index)
+    v = read_varint(data, dataspool)
     field = v >> 3
     msgtype = v & 0x7
     return (field, msgtype)
 
-def read_field(data, index, parent=None):
-    (field, msgtype) = read_tag(data, index)
+def read_field(data, dataspool):
+    (field, msgtype) = read_tag(data, dataspool.tell(), dataspool)
     if msgtype == WireType.VARINT:
-        pass
-
-def find_strings(table):
-    return None
+        return field, msgtype, read_varint(data, dataspool)
+    elif msgtype == WireType.I64:
+        # skip over fixed-width 8-byte
+        dataspool.seek(8, 1)
+    elif msgtype == WireType.I32:
+        # skip over fixed-width 4-byte
+        dataspool.seek(4, 1)
+    elif msgtype == WireType.SGROUP or msgtype == WireType.EGROUP:
+        # fail on this for now
+        raise ValueError("Did not expect SGROUP/EGROUP encoding but found at " + str(dataspool.tell()))
+    elif msgtype == WireType.LEN:
+        length = read_varint(data, dataspool)
+        content = dataspool.read(length)
+        if content.isascii():
+            content = content.decode('utf-8')
+        return field, msgtype, content
+    else:
+        raise ValueError("Unknown message type encoding " + str(msgtype) + " found at " + str(dataspool.tell()))
 
 if __name__ == "__main__":
     bfe = BigFileEditor()
@@ -99,4 +126,9 @@ if __name__ == "__main__":
 
     level_data = [l for l in bfe.tables if l['s1'].decode('utf-16') == 'LevelData']
 
-    print("-> " + str(read_tag(level_data[0]['data'], 0)))
+    for level in level_data:
+        l = level['data']
+        spool = DataSpooler(l)
+        while spool.has_more():
+            print(read_field(l, spool))
+        break
