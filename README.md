@@ -10,6 +10,10 @@ Various tools for dealing with the SoR4 bigfile
 
 ## BASIC INSTRUCTIONS
 
+**!! IMPORTANT !!**
+
+Run `pip install bbpb` to install the python3 `blackboxprotobuf` module. **Do NOT** run pip install blackboxprotobuf! This will install an incorrect version and you will need to uninstall that version in order for the library to function correctly.
+
 1. Clone this repo.
 2. Copy your game `bigfile` to a working area of your choice.
     * Make a backup of your game's `bigfile` just in case!
