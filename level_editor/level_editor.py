@@ -103,11 +103,13 @@ def read_field(data, dataspool):
     if msgtype == WireType.VARINT:
         return field, msgtype, read_varint(data, dataspool)
     elif msgtype == WireType.I64:
-        # skip over fixed-width 8-byte
-        dataspool.seek(8, 1)
+        df = dataspool.read(8)
+        df = struct.unpack('<d', df)[0]
+        return field, msgtype, df
     elif msgtype == WireType.I32:
-        # skip over fixed-width 4-byte
-        dataspool.seek(4, 1)
+        df = dataspool.read(4)
+        df = struct.unpack('<f', df)[0]
+        return field, msgtype, df
     elif msgtype == WireType.SGROUP or msgtype == WireType.EGROUP:
         # fail on this for now
         raise ValueError("Did not expect SGROUP/EGROUP encoding but found at " + str(dataspool.tell()))
