@@ -83,7 +83,9 @@ known_types = {
                         "5" : "Hitstun",
                         "21" : {
                             "1" : "Sound effect"
-                        }
+                        },
+                        "37": "Ignore OTG limitations",
+                        "51": "Allow OTG"
                     }
                 }
             }
@@ -99,7 +101,9 @@ def lookup_type(crumb):
             kt = ''
             type_lookup = {}
             break
-        if chunk in type_lookup and (i >= len(crumb)-1 or not isinstance(type_lookup[chunk], str)):
+        elif chunk in type_lookup:
+            # note: this relies on the LAST iteration of the loop
+            # hitting the desired endpoint
             type_lookup = type_lookup[chunk]
         elif "*" in type_lookup:
             type_lookup = type_lookup["*"]
