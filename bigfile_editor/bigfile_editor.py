@@ -15,6 +15,7 @@
 # along with this program; If not, see <http://www.gnu.org/licenses/>.
 
 import blackboxprotobuf
+from google.protobuf.internal import wire_format
 import sys
 import struct
 import os
@@ -81,7 +82,7 @@ class BigFileGui:
         self.tabletree.column("#0", width=384, minwidth=512, stretch=True)
         self.scrollbar.config(command = self.tabletree.yview)
         self.scrollbarx.config(command = self.tabletree.xview)
-        self.tabletree.bind('<ButtonRelease-1>', self.select_table)
+        self.tabletree.bind('<<TreeviewSelect>>', self.select_table)
 
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
         self.scrollbarx.pack(side=tk.BOTTOM, fill=tk.BOTH)
@@ -290,27 +291,37 @@ class BigFileGui:
         parent.focus_set()
         edwin.destroy()
 
+    def determine_value_type(self, uid, value):
+        # uid can be used later to compare against
+        # typedef, but for now, we have only
+        # string, varint, float and double, and we
+        # will infer types
+        if not value:
+            return None
+
+        strip_value = str(value).strip()
+        try:
+            f = float(strip_value)
+            if f.is_integer() and not '.' in strip_value:
+                return int(f)
+            else:
+                return float(f)
+        except ValueError:
+            return value
+
     def set_cell(self, edwin, w, tvar):
         value = tvar.get()
-        if value:
-            value = value.strip()
         uid = self.tree.focus()
         if uid not in self.uuid_lookup:
             uid = self.tree.parent(uid)
         if uid in self.uuid_lookup:
-            if value.isnumeric():
-                self.uuid_lookup[uid][w.item(w.focus())['text']] = int(value)
-            else:
-                self.uuid_lookup[uid][w.item(w.focus())['text']] = value
+            self.uuid_lookup[uid][w.item(w.focus())['text']] = self.determine_value_type(uid, value)
             self.selected_table['edited'] = True
         elif w.item(w.focus())['text'] not in self.selected_table['message']:
             mb.showerror("Internal Error", "Unknown node being edited; internal error.")
         else:
             # top-level (not in uid lookup)
-            if value.isnumeric():
-                self.selected_table['message'][w.item(w.focus())['text']] = int(value)
-            else:
-                self.selected_table['message'][w.item(w.focus())['text']] = value
+            self.selected_table['message'][w.item(w.focus())['text']] = self.determine_value_type(uid, value)
             self.selected_table['edited'] = True
 
         w.item(w.focus(), values=(value,))
@@ -386,6 +397,9 @@ class BigFileEditor:
         self.total_chunks = 0
         self.tables = []
         self.infile = None
+        self.bb_config = blackboxprotobuf.lib.config.Config()
+        self.bb_config.default_types[wire_format.WIRETYPE_FIXED32] = 'float'
+        self.bb_config.default_types[wire_format.WIRETYPE_FIXED64] = 'double'
 
     def read_compressed_bigfile(self, filename):
         self._read_bigfile(filename, True)
@@ -423,7 +437,7 @@ class BigFileEditor:
                 tr['data'] = f.read(tr['size'])
         
         if decode and (not tr['message'] or not tr['typedef']):
-            tr['message'],tr['typedef'] = blackboxprotobuf.decode_message(tr['data'])
+            tr['message'],tr['typedef'] = blackboxprotobuf.decode_message(tr['data'], config=self.bb_config)
         return tr['message']
 
     def export_all_tables(self, outfile):
@@ -438,7 +452,7 @@ class BigFileEditor:
             outfile.write(t['s2'])
 
             if t['edited']:
-                data = blackboxprotobuf.encode_message(t['message'],t['typedef'])
+                data = blackboxprotobuf.encode_message(t['message'],t['typedef'], config=self.bb_config)
                 outfile.write(len(data).to_bytes(4,"little"))
                 outfile.write(data)
             else:
