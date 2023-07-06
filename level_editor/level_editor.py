@@ -205,7 +205,7 @@ def find_string_hierarchy(data, spool, depth=0):
         try:
             (f, m, c) = read_field(data, spool)
         except:
-            continue
+            break
         if m == WireType.STRING:
             print("."*depth + str(f) + ": string " + str(c))
         elif m == WireType.MESSAGE and c:
