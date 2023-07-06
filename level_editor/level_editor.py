@@ -18,6 +18,7 @@ import zlib
 import sys
 import struct
 import os
+import string
 
 import uuid
 import tkinter as tk
@@ -28,6 +29,8 @@ from tkinter import messagebox as mb
 from enum import IntEnum
 
 class WireType(IntEnum):
+    STRING = -2
+    MESSAGE = -1
     VARINT = 0
     I64 = 1
     LEN = 2
@@ -50,11 +53,15 @@ class DataSpooler:
         self.ptr = 0
         self.len = len(data)
 
-    def read(self, howmany):
+    def read(self, howmany, advance=True):
         if howmany <= 0:
             return None
-        self.ptr += howmany
+        if advance:
+            self.ptr += howmany
         return self.data[self.ptr-howmany:self.ptr]
+
+    def peek(self, howmany):
+        return self.read(howmany, advance=False)
 
     def tell(self):
         return self.ptr
@@ -93,10 +100,53 @@ def read_varint_raw(data, index, dataspool=None):
 
 def read_tag(data, index, dataspool=None):
     assert index < len(data) and index >= 0
-    v = read_varint(data, dataspool)
+    v = read_varint_raw(data, index, dataspool)
     field = v >> 3
     msgtype = v & 0x7
     return (field, msgtype)
+
+def likely_string(value, threshold=0.6):
+    if not value:
+        return False
+    if not value.isascii():
+        return False
+
+    value = str(value, 'utf-8')
+    length = len(value)
+    alnum = 0
+    for c in value:
+        if c.isalnum():
+            alnum += 1
+        elif c not in string.punctuation:
+            return False
+
+    if float(alnum)/float(length) >= threshold:
+        return True
+    else:
+        return False
+
+def guess_if_message(data, dataspool, length):
+    rewind = dataspool.tell()
+    try:
+        (f, m) = read_tag(data, dataspool.tell(), dataspool)
+    except:
+        return False
+    # arbitrary limit on field numbers based on experience, but should revise this
+    # based on what's actually present in the decoded file (todo)
+    if f > 1024:
+        return False
+
+    if m == WireType.LEN:
+        size = read_varint(data, dataspool)
+        bytes_read = dataspool.tell() - rewind
+        if size <= length - bytes_read:
+            # will guess this is a message
+            dataspool.seek(rewind, 0)
+            return True
+    dataspool.seek(rewind, 0)
+    if m >= WireType.VARINT and m <= WireType.I32 and m != WireType.LEN:
+        return True
+    return False
 
 def read_field(data, dataspool):
     (field, msgtype) = read_tag(data, dataspool.tell(), dataspool)
@@ -115,9 +165,13 @@ def read_field(data, dataspool):
         raise ValueError("Did not expect SGROUP/EGROUP encoding but found at " + str(dataspool.tell()))
     elif msgtype == WireType.LEN:
         length = read_varint(data, dataspool)
+        guess_message = guess_if_message(data, dataspool, length)
         content = dataspool.read(length)
-        if content.isascii():
+        if likely_string(content):
             content = content.decode('utf-8')
+            msgtype = WireType.STRING
+        elif guess_message:
+            msgtype = WireType.MESSAGE
         return field, msgtype, content
     else:
         raise ValueError("Unknown message type encoding " + str(msgtype) + " found at " + str(dataspool.tell()))
