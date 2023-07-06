@@ -84,8 +84,8 @@ known_types = {
                         "21" : {
                             "1" : "Sound effect"
                         },
-                        "37": "Ignore OTG limitations",
-                        "51": "Allow OTG"
+                        "37": "Ignore OTG limitations", # Credit and thanks to FuzzYetPatchy and MoonLightFox!
+                        "51": "Allow OTG"               # Credit and thanks to FuzzYetPatchy and MoonLightFox!
                     }
                 }
             }
