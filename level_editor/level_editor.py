@@ -45,19 +45,23 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 from bigfile_editor import BigFileEditor
 
 class DataSpooler:
-    def __init__(self, data):
-        self.load(data)
+    def __init__(self, data, end=None):
+        self.load(data, end)
 
-    def load(self, data):
+    def load(self, data, end):
         self.data = data
         self.ptr = 0
-        self.len = len(data)
+        if end:
+            self.len = end
+        else:
+            self.len = len(data)
 
     def read(self, howmany, advance=True):
-        if howmany <= 0:
+        if howmany <= 0 or self.len - self.ptr - howmany < 0:
             return None
         if advance:
             self.ptr += howmany
+            self._clip_bounds()
         return self.data[self.ptr-howmany:self.ptr]
 
     def peek(self, howmany):
@@ -113,17 +117,20 @@ def likely_string(value, threshold=0.6):
 
     value = str(value, 'utf-8')
     length = len(value)
-    alnum = 0
+    alpha = 0
+    num = 0
     for c in value:
-        if c.isalnum():
-            alnum += 1
+        if c.isalpha():
+            alpha += 1
+        elif c.isnumeric():
+            num += 1
         elif c not in string.punctuation:
             return False
 
-    if float(alnum)/float(length) >= threshold:
+    if float(alpha + num)/float(length) >= threshold and alpha > 0:
         return True
-    else:
-        return False
+
+    return False
 
 def guess_if_message(data, dataspool, length):
     rewind = dataspool.tell()
@@ -154,11 +161,13 @@ def read_field(data, dataspool):
         return field, msgtype, read_varint(data, dataspool)
     elif msgtype == WireType.I64:
         df = dataspool.read(8)
-        df = struct.unpack('<d', df)[0]
+        if df:
+            df = struct.unpack('<d', df)[0]
         return field, msgtype, df
     elif msgtype == WireType.I32:
         df = dataspool.read(4)
-        df = struct.unpack('<f', df)[0]
+        if df:
+            df = struct.unpack('<f', df)[0]
         return field, msgtype, df
     elif msgtype == WireType.SGROUP or msgtype == WireType.EGROUP:
         # fail on this for now
@@ -176,6 +185,33 @@ def read_field(data, dataspool):
     else:
         raise ValueError("Unknown message type encoding " + str(msgtype) + " found at " + str(dataspool.tell()))
 
+class Node:
+    def __init__(self, parent, tag_start, data_start, data_len, content=None):
+        self.parent = parent
+        self.tag_start = tag_start
+        self.data_start = data_start
+        self.data_len = data_len
+        self.content = content
+
+
+def find_string_hierarchy(data, spool, depth=0):
+    # for each string, find:
+    #  parent
+    #  tag start
+    #  string start
+    #  string length (end)
+    while spool.has_more():
+        # is the next field a string?
+        try:
+            (f, m, c) = read_field(data, spool)
+        except:
+            continue
+        if m == WireType.STRING:
+            print("."*depth + str(f) + ": string " + str(c))
+        elif m == WireType.MESSAGE and c:
+            spool_new = DataSpooler(c)
+            find_string_hierarchy(c,spool_new,depth+1)
+
 if __name__ == "__main__":
     bfe = BigFileEditor()
     bfe.read_uncompressed_bigfile('bigdata/bigfile.decomp')
@@ -185,6 +221,4 @@ if __name__ == "__main__":
     for level in level_data:
         l = level['data']
         spool = DataSpooler(l)
-        while spool.has_more():
-            print(read_field(l, spool))
-        break
+        find_string_hierarchy(l, spool)
