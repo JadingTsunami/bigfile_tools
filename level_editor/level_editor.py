@@ -186,31 +186,47 @@ def read_field(data, dataspool):
         raise ValueError("Unknown message type encoding " + str(msgtype) + " found at " + str(dataspool.tell()))
 
 class Node:
-    def __init__(self, parent, tag_start, data_start, data_len, content=None):
+    def __init__(self, parent, tag_start, data_start, data_len, field_num, content=None):
         self.parent = parent
         self.tag_start = tag_start
         self.data_start = data_start
         self.data_len = data_len
+        self.field_num = field_num
         self.content = content
 
 
-def find_string_hierarchy(data, spool, depth=0):
+def find_string_hierarchy(data, spool, parent=None, string_list=None):
     # for each string, find:
     #  parent
     #  tag start
     #  string start
     #  string length (end)
+    if not string_list:
+        string_list = []
+
     while spool.has_more():
         # is the next field a string?
         try:
+            tag_start = spool.tell()
+            (field, msgtype) = read_tag(data, spool.tell(), spool)
+            data_start = spool.tell()
+            spool.seek(tag_start, 0)
             (f, m, c) = read_field(data, spool)
+            if c:
+                data_len = len(c)
+            else:
+                data_len = 0
         except:
             break
         if m == WireType.STRING:
-            print("."*depth + str(f) + ": string " + str(c))
+            new_node = Node(parent, tag_start, data_start, data_len, f, c)
+            string_list.append(new_node)
         elif m == WireType.MESSAGE and c:
             spool_new = DataSpooler(c)
-            find_string_hierarchy(c,spool_new,depth+1)
+            new_node = Node(parent, tag_start, data_start, data_len, f, None)
+            find_string_hierarchy(c, spool_new, new_node, string_list)
+
+    return string_list
 
 if __name__ == "__main__":
     bfe = BigFileEditor()
@@ -221,4 +237,16 @@ if __name__ == "__main__":
     for level in level_data:
         l = level['data']
         spool = DataSpooler(l)
-        find_string_hierarchy(l, spool)
+        sl = find_string_hierarchy(l, spool)
+        for node in sl:
+            if node.content:
+                tabs = 0
+                n = node.parent
+                while n:
+                    tabs += 1
+                    print(" " * tabs + str(n.field_num))
+                    n = n.parent
+                print(" "*(1+tabs) + str(node.field_num) + ": " + str(node.content))
+            else:
+                print(str(node.field_num))
+        break
