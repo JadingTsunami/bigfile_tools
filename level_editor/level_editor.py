@@ -65,6 +65,14 @@ class DataSpooler:
             self.ptr += howmany
         return self.data[self.ptr-howmany:self.ptr]
 
+    def splice(self, where, howmany, what):
+        if where < 0:
+            raise ValueError("Splice location less than 0")
+        elif howmany <= 0:
+            raise ValueError("Splice width less than or equal to 0")
+
+        self.data = self.data[:where] + what + self.data[where+howmany:]
+
     def peek(self, howmany):
         return self.read(howmany, advance=False)
 
