@@ -57,11 +57,12 @@ class DataSpooler:
             self.len = len(data)
 
     def read(self, howmany, advance=True):
-        if howmany <= 0 or self.len - self.ptr - howmany < 0:
-            return None
+        if howmany <= 0:
+            raise ValueError("Read less than or equal to 0")
+        if self.ptr + howmany > self.len:
+            raise EOFError("Tried to read past end of file")
         if advance:
             self.ptr += howmany
-            self._clip_bounds()
         return self.data[self.ptr-howmany:self.ptr]
 
     def peek(self, howmany):
@@ -108,6 +109,25 @@ def read_tag(data, index, dataspool=None):
     field = v >> 3
     msgtype = v & 0x7
     return (field, msgtype)
+
+def encode_varint(v):
+    if not v:
+        return bytearray([0])
+
+    b = bytearray()
+    while v:
+        cur_byte = (v & 0x7F)
+        v >>= 7
+        if v:
+            cur_byte |= 0x80
+        b.append(cur_byte)
+    return b
+
+def encode_tag(field_num, wire_type):
+    assert wire_type >= WireType.VARINT and wire_type <= WireType.I32
+    assert field_num > 0
+    tag = (wire_type & 0x7) | (field_num << 3)
+    return encode_varint(tag)
 
 def likely_string(value, threshold=0.6):
     if not value:
@@ -194,7 +214,6 @@ class Node:
         self.field_num = field_num
         self.content = content
 
-
 def find_string_hierarchy(data, spool, parent=None, string_list=None):
     # for each string, find:
     #  parent
@@ -209,22 +228,24 @@ def find_string_hierarchy(data, spool, parent=None, string_list=None):
         try:
             tag_start = spool.tell()
             (field, msgtype) = read_tag(data, spool.tell(), spool)
+            if msgtype == WireType.LEN:
+                data_len = read_varint(data, spool)
+            else:
+                data_len = 0
             data_start = spool.tell()
             spool.seek(tag_start, 0)
             (f, m, c) = read_field(data, spool)
-            if c:
-                data_len = len(c)
-            else:
-                data_len = 0
+            data_end = spool.tell()
         except:
             break
         if m == WireType.STRING:
             new_node = Node(parent, tag_start, data_start, data_len, f, c)
             string_list.append(new_node)
         elif m == WireType.MESSAGE and c:
-            spool_new = DataSpooler(c)
+            spool_new = DataSpooler(data, end=data_end)
+            spool_new.seek(data_start, 0)
             new_node = Node(parent, tag_start, data_start, data_len, f, None)
-            find_string_hierarchy(c, spool_new, new_node, string_list)
+            find_string_hierarchy(data, spool_new, new_node, string_list)
 
     return string_list
 
@@ -237,16 +258,17 @@ if __name__ == "__main__":
     for level in level_data:
         l = level['data']
         spool = DataSpooler(l)
-        sl = find_string_hierarchy(l, spool)
-        for node in sl:
+        head = find_string_hierarchy(l, spool)
+        for node in head:
             if node.content:
                 tabs = 0
                 n = node.parent
+                path = ""
                 while n:
                     tabs += 1
-                    print(" " * tabs + str(n.field_num))
+                    path = str(n.field_num) + "." + str(path)
                     n = n.parent
-                print(" "*(1+tabs) + str(node.field_num) + ": " + str(node.content))
+                print(str(path) + ":" + str(node.field_num) + ": " + str(node.content))
             else:
                 print(str(node.field_num))
         break
