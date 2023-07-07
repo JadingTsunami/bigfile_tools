@@ -260,9 +260,50 @@ def find_string_hierarchy(data, spool, parent=None, string_list=None):
 if __name__ == "__main__":
     bfe = BigFileEditor()
     bfe.read_uncompressed_bigfile('bigdata/bigfile.decomp')
+    bfe.read_compressed_bigfile('bigdata/biglevel.try')
 
     level_data = [l for l in bfe.tables if l['s1'].decode('utf-16') == 'LevelData']
 
+    once = True
+    for level in level_data:
+        l = level['data']
+        spool = DataSpooler(l)
+        head = find_string_hierarchy(l, spool)
+        for node in head:
+            if node.content:
+                tabs = 0
+                n = node.parent
+                path = ""
+                while n:
+                    tabs += 1
+                    path = str(n.field_num) + "." + str(path)
+                    n = n.parent
+                print(str(path) + ":" + str(node.field_num) + ": " + str(node.content))
+            else:
+                print(str(node.field_num))
+
+            if node.content and node.content == 'characters/sor4_enemies/galsia/chrsor4_l0_galsia' and once:
+                print("rewriting")
+                once = False
+                new_enemy = bytearray("characters/sor4_enemies/donovan/chrsor4_l0_donovan","utf-8")
+                size_diff = len(new_enemy) - len(node.content)
+                new_tag = encode_tag(node.field_num, WireType.LEN)
+                new_tag += encode_varint(len(new_enemy))
+                spool.splice(node.tag_start, (node.data_start-node.tag_start) + node.data_len, new_tag + new_enemy)
+                size_diff += len(new_tag) - (node.data_start-node.tag_start)
+                # now write size delta all the way up
+                p = node.parent
+                while p:
+                    p_tag = encode_tag(p.field_num, WireType.LEN)
+                    p_tag += encode_varint(p.data_len + size_diff)
+                    spool.splice(p.tag_start, p.data_start-p.tag_start, p_tag)
+                    size_diff += len(p_tag) - (p.data_start-p.tag_start)
+                    p = p.parent
+        level['data'] = spool.data
+        level['size'] = len(spool.data)
+        break
+
+    print("--------------------")
     for level in level_data:
         l = level['data']
         spool = DataSpooler(l)
@@ -280,3 +321,7 @@ if __name__ == "__main__":
             else:
                 print(str(node.field_num))
         break
+# characters/sor4_enemies/galsia/chrsor4_l0_galsia
+# characters/sor4_enemies/donovan/chrsor4_l0_donovan
+    #bfe.write_compressed_bigfile("bigdata/biglevel.try")
+    #print("written")
