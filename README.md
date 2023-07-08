@@ -34,6 +34,14 @@ Only a small amount of game data is annotated at this time, but if the data in a
 
 * **WARNING!!** Editing game data can be unpredictable. The tool uses a "best guess" about the game data, which may or may not result in game crashes, data corruption or loss, and so on. **BACK UP ALL YOUR DATA BEFORE MAKING ANY CHANGES!!**
 
+## level_editor
+
+Enables swapping out each enemy, pickup, and/or breakable spawn point in each level.
+
+This is *not* the existing swapper: each spawn point is edited individually.
+
+The stage progression can be modified using the [Swapper](https://sourceforge.net/projects/sor4-character-swapper/) or bigfile editor to create fully custom stages. Just import the modified bigfile into the level editor and perform additional swaps. Note you need to know the internal game name for the enemies you replace using this method. But, most of them are self-explanatory.
+
 ## compression_tool
 
 `dotnet run --project compression_tool`
