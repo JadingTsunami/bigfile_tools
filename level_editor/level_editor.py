@@ -706,6 +706,65 @@ def replace_node(table, node, replacement_string):
     return find_string_hierarchy(table['data'], spool)
 
 
+class SelectReplacementDialog:
+    def __init__(self, root, prompt, choices):
+        self.top = tk.Toplevel(root)
+        self.label = tk.Label(self.top, text=prompt)
+        self.ok_button = tk.Button(self.top, text="OK", command=self.on_ok)
+
+        self.listframe = ttk.Frame(self.top)
+
+        self.list = tk.Listbox(self.listframe)
+        self.list.bind('<<ListboxSelect>>', self.select_replacement)
+
+        self.bary = ttk.Scrollbar(self.listframe)
+        self.barx = ttk.Scrollbar(self.listframe, orient=tk.HORIZONTAL)
+
+        self.list.config(yscrollcommand = self.bary.set)
+        self.list.config(xscrollcommand = self.barx.set)
+
+        self.bary.config(command=self.list.yview)
+        self.barx.config(command=self.list.xview)
+
+        self.bary.pack(side=tk.RIGHT, fill=tk.Y)
+        self.barx.pack(side=tk.BOTTOM, fill=tk.X)
+        self.list.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
+
+        self.top.columnconfigure(0, weight=1)
+        self.top.rowconfigure(1, weight=1)
+        
+        self.label.grid(row=0, column=0, sticky=tk.N)
+        self.listframe.grid(row=1, column=0, sticky=tk.NSEW)
+        self.ok_button.grid(row=2, column=0, stick=tk.S)
+
+        for choice in choices:
+            self.list.insert(tk.END, choice)
+
+        self.list.bind("<Return>", self.on_ok)
+        self.list.bind('<Double-1>', self.on_ok)
+        self.list.bind("<Escape>", self.abandon)
+
+        self.top.geometry('700x350')
+        self.replacement = None
+
+    def abandon(self, event=None):
+        self.replacement = None
+        self.top.destroy()
+        
+    def on_ok(self, event=None):
+        self.top.destroy()
+
+    def select_replacement(self, e):
+        sel = e.widget.curselection()
+        if sel:
+            self.replacement = self.list.get(sel[0])
+
+    def show(self):
+        self.top.wm_deiconify()
+        self.list.focus_force()
+        self.top.wait_window()
+        return self.replacement
+
 class LevelEditorGUI:
     def __init__(self, bfe):
         self.root = tk.Tk()
@@ -772,6 +831,7 @@ class LevelEditorGUI:
         self.uuid_lookup = {}
         self.level_lookup = []
         self.selected_level = None
+        self.replacements = {}
 
         # FIXME: Remove (testing only)
         self.bfe.read_uncompressed_bigfile("bigdata/bigfile.decomp")
@@ -818,6 +878,7 @@ class LevelEditorGUI:
                 mb.showerror("Error exporting file", "Error exporting bigfile.\nDo you have write permissions and enough drive space?\nException details:\n" + str(e))
 
     def build_gui(self, tables):
+        self.clear_gui()
         for table in tables:
             max_name = 0
             if table['s1'].decode('utf-16') == "LevelData":
@@ -834,14 +895,30 @@ class LevelEditorGUI:
         self.levellist.delete(0, tk.END)
 
     def edit_item(self, e):
-        pass
+        uid = str(self.tree.focus())
+        if uid not in self.uuid_lookup:
+            mb.showwarning("Can't edit top-level", "Can't replace top-level items; choose an enemy, destroyable or pickup instead.")
+        else:
+            n = self.uuid_lookup[uid]
+            choices = []
+            if n.content in enemy_list:
+                choices = enemy_list
+            elif n.content in destroyable_list:
+                choices = destroyable_list
+            elif n.content in pickup_list:
+                choices = pickup_list
+            chosen = SelectReplacementDialog(self.root, "Replace " + str(n.content) + " with:", choices).show()
+            if chosen:
+                self.replacements[uid] = (self.selected_level, n, chosen)
+                w = e.widget
+                w.item(w.focus(), text=chosen)
 
     def clear_tree(self):
         self.uuid_lookup = {}
         for item in self.tree.get_children():
            self.tree.delete(item)
 
-    def build_gui_tree(self, tree, parent, data, breadcrumb=None):
+    def build_gui_tree(self, tree, parent, data):
         children = find_string_hierarchy(data, DataSpooler(data))
         current_parent = ''
         for c in children:
@@ -856,12 +933,13 @@ class LevelEditorGUI:
             elif c.content in enemy_list or c.content in destroyable_list or c.content in pickup_list:
                 uid = uuid.uuid4()
                 self.tree.insert(current_parent, 'end', uid, text=c.content)
-                self.uuid_lookup[uid] = c
+                self.uuid_lookup[str(uid)] = c
 
     def select_level(self, e):
         sel = e.widget.curselection()
         if sel:
             self.selected_level = self.level_lookup[sel[0]]
+            self.clear_tree()
             self.build_gui_tree(self.tree, '', self.selected_level['data'])
 
 if __name__ == "__main__":
