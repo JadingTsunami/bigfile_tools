@@ -841,11 +841,6 @@ class LevelEditorGUI:
         self.replacements = {}
         self.children = {}
 
-        # FIXME: Remove (testing only)
-        #self.bfe.read_uncompressed_bigfile("bigdata/bigfile.decomp")
-        #self.build_gui(self.bfe.tables)
-        # end
-
         self.root.geometry('1200x600')
         self.root.mainloop()
 
