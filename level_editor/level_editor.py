@@ -637,14 +637,17 @@ class Node:
         self.field_num = field_num
         self.content = content
 
-def find_string_hierarchy(data, spool, parent=None, string_list=None):
+def find_string_hierarchy(data, spool, parent=None, string_list=None, known_parents=None):
     # for each string, find:
     #  parent
     #  tag start
     #  string start
     #  string length (end)
-    if not string_list:
+    if string_list is None:
         string_list = []
+
+    if known_parents is None:
+        known_parents = {}
 
     while spool.has_more():
         # is the next field a string?
@@ -659,7 +662,7 @@ def find_string_hierarchy(data, spool, parent=None, string_list=None):
             spool.seek(tag_start, 0)
             (f, m, c) = read_field(data, spool)
             data_end = spool.tell()
-        except:
+        except Exception as e:
             break
         if m == WireType.STRING:
             new_node = Node(parent, tag_start, data_start, data_len, f, c)
@@ -667,8 +670,12 @@ def find_string_hierarchy(data, spool, parent=None, string_list=None):
         elif m == WireType.MESSAGE and c:
             spool_new = DataSpooler(data, end=data_end)
             spool_new.seek(data_start, 0)
-            new_node = Node(parent, tag_start, data_start, data_len, f, None)
-            find_string_hierarchy(data, spool_new, new_node, string_list)
+            if tag_start in known_parents:
+                new_node = known_parents[tag_start]
+            else:
+                new_node = Node(parent, tag_start, data_start, data_len, f, None)
+                known_parents[tag_start] = new_node
+            find_string_hierarchy(data, spool_new, new_node, string_list, known_parents)
 
     return string_list
 
@@ -832,10 +839,11 @@ class LevelEditorGUI:
         self.level_lookup = []
         self.selected_level = None
         self.replacements = {}
+        self.children = {}
 
         # FIXME: Remove (testing only)
-        self.bfe.read_uncompressed_bigfile("bigdata/bigfile.decomp")
-        self.build_gui(self.bfe.tables)
+        #self.bfe.read_uncompressed_bigfile("bigdata/bigfile.decomp")
+        #self.build_gui(self.bfe.tables)
         # end
 
         self.root.geometry('1200x600')
@@ -870,12 +878,39 @@ class LevelEditorGUI:
         ouf = fd.asksaveasfilename(parent=self.root, title="Export Uncompressed Bigfile")
         if ouf:
             try:
+                self.apply_replacements()
                 if compressed:
                     self.bfe.write_compressed_bigfile(ouf)
                 else:
                     self.bfe.write_uncompressed_bigfile(ouf)
             except Exception as e:
                 mb.showerror("Error exporting file", "Error exporting bigfile.\nDo you have write permissions and enough drive space?\nException details:\n" + str(e))
+
+    def apply_replacements(self):
+        # 1. walk each replacement and apply it
+        # WARNING: This relies on the fact that we never replace or
+        # delete nodes, we only modify them.
+        # Therefore they end up in the same relative location every
+        # time we make changes, no matter what those changes are.
+        # *IF* nodes can be added or removed, then a new method to link
+        # old and new nodes would be required.
+        new_children = {}
+        for r in self.replacements:
+            (t, n, r) = self.replacements[r]
+            s2 = t['s2']
+            index = self.children[s2].index(n)
+            if not index:
+                mb.showerror("Uh oh", "Internal error: Index of child node not found!")
+            elif s2 in new_children:
+                new_children[s2] = replace_node(t, new_children[s2][index], r)
+            else:
+                new_children[s2] = replace_node(t, n, r)
+
+        # 2. clear replacements (they're applied)
+        self.replacements = {}
+
+        # 3. rebuild GUI
+        self.build_gui(self.bfe.tables)
 
     def build_gui(self, tables):
         self.clear_gui()
@@ -891,6 +926,7 @@ class LevelEditorGUI:
     def clear_gui(self):
         self.clear_tree()
         self.selected_level = None
+        self.children = {}
         self.level_lookup = []
         self.levellist.delete(0, tk.END)
 
@@ -916,10 +952,11 @@ class LevelEditorGUI:
     def clear_tree(self):
         self.uuid_lookup = {}
         for item in self.tree.get_children():
-           self.tree.delete(item)
+            self.tree.delete(item)
 
     def build_gui_tree(self, tree, parent, data):
         children = find_string_hierarchy(data, DataSpooler(data))
+        self.children[self.selected_level['s2']] = children
         current_parent = ''
         for c in children:
             path = ""
