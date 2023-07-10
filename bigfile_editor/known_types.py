@@ -73,21 +73,37 @@ known_types = {
         "99": {
             "name": "Moves",
             "*" : {
+                "2" : "Input trigger button",           # Credit and thanks to Honganqi and FuzzYetPatchy!
+                "3" : "Input trigger direction",        # Credit and thanks to Honganqi and FuzzYetPatchy!
                 "6" : {
                     "name": "Hit",
                     "*" : {
                         "1" : {
                             "1": "Damage (16.16)"
                         },
+                        "2" : {
+                            "1" : "Horizontal Force"    # Credit and thanks to Bragdras!
+                        },
+                        "3" : {
+                            "1" : "Vertical Force"      # Credit and thanks to Bragdras!
+                        },
                         "4" : "Hitstop",
                         "5" : "Hitstun",
                         "21" : {
                             "1" : "Sound effect"
                         },
+                        "24" : {
+                            "1" : "Hit depth"           # Credit and thanks to Bragdras!
+                        },
                         "37": "Ignore OTG limitations", # Credit and thanks to FuzzYetPatchy and MoonLightFox!
                         "51": "Allow OTG"               # Credit and thanks to FuzzYetPatchy and MoonLightFox!
                     }
+                },
+                "21" : {
+                    "1" : "HP Cost for Move"
                 }
+                # 99.7.2: Maybe: buffer inputs for MoveCondition (FuzzYetPatchy)
+                # 99.7.3: Maybe: buffer inputs for MoveCommand (FuzzYetPatchy)
             }
         }
     }
