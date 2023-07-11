@@ -524,6 +524,8 @@ class LevelEditorGUI:
                 choices = destroyable_list
             elif n.content in pickup_list:
                 choices = pickup_list
+            elif n.content in music_list:
+                choices = music_list
             chosen = SelectReplacementDialog(self.root, "Replace " + str(n.content) + " with:", choices).show()
             if chosen:
                 self.replacements[uid] = (self.selected_level, n, chosen)
@@ -548,7 +550,7 @@ class LevelEditorGUI:
             path += str(c.field_num)
             if path == "101.13.1":
                 current_parent = self.tree.insert('', 'end', text=c.content)
-            elif c.content in enemy_list or c.content in destroyable_list or c.content in pickup_list:
+            elif c.content in enemy_list or c.content in destroyable_list or c.content in pickup_list or c.content in music_list:
                 uid = uuid.uuid4()
                 self.tree.insert(current_parent, 'end', uid, text=c.content)
                 self.uuid_lookup[str(uid)] = c
