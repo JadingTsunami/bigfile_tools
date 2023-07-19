@@ -383,6 +383,7 @@ class BigFileGui:
                 self.build_gui_tree(tree, uid, message[key], crumb)
             elif isinstance(message[key], list):
                 tree.insert(parent, 'end', uid, text=key + '[]', values=('', meaning))
+                crumb[-1] = crumb[-1] + "[]"
                 self.uuid_lookup[str(uid)] = message[key]
                 self.build_gui_tree(tree,
                          uid,

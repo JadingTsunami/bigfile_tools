@@ -106,27 +106,76 @@ known_types = {
                 # 99.7.3: Maybe: buffer inputs for MoveCommand (FuzzYetPatchy)
             }
         }
+    },
+
+    "SurvivalConfigData" : {
+        "1" : {
+            "name" : "Enemy spawn groups",
+            "*" : {
+                "1" : "Enemy grouping name",
+                "2" : {
+                    "1" : {
+                        "1" : "Enemy grouping definition pointer"
+                    }
+                }
+            }
+        },
+        "2" : "Enemy group definitions",
+        "3" : "Survival map configs",
+        "5" : "Survival perk definitions",
+        "27" : "Random crate weapons",
+        "48" : {
+            "name" : "Random crate pickups",
+            "*" : {
+                "1" : {
+                    "1" : "Pickup type"
+                },
+                "2" : "Probability of appearing (out of 100)"
+            }
+        },
+        "53" : {
+            "name" : "Buddy/Ally definitions",
+            "*" : {
+                "1" : "Level 0/1/2/3 random allies"
+            }
+        }
     }
 }
 
 def lookup_type(crumb):
     kt = ''
     type_lookup = known_types
+    in_array = False
+    skip_next = False
     for i,chunk in enumerate(crumb):
+        if chunk.endswith('[]'):
+            in_array = True
+            chunk = chunk.rstrip('[]')
+
         if isinstance(type_lookup, str):
             kt = ''
             type_lookup = {}
             break
+        elif skip_next and "*" in type_lookup:
+            type_lookup = type_lookup["*"]
+            skip_next = False
         elif chunk in type_lookup:
             # note: this relies on the LAST iteration of the loop
             # hitting the desired endpoint
             type_lookup = type_lookup[chunk]
+            if in_array:
+                skip_next = True
+            else:
+                skip_next = False
         elif "*" in type_lookup:
             type_lookup = type_lookup["*"]
+            if chunk in type_lookup:
+                type_lookup = type_lookup[chunk]
         else:
             kt = ''
             type_lookup = {}
             break
+        in_array = False
     if isinstance(type_lookup, dict) and "name" in type_lookup:
         kt = type_lookup["name"]
     elif isinstance(type_lookup, str):
