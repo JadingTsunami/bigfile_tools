@@ -114,15 +114,40 @@ known_types = {
             "*" : {
                 "1" : "Enemy grouping name",
                 "2" : {
-                    "1" : {
-                        "1" : "Enemy grouping definition pointer"
+                    "name" : "Group definiton",
+                    "*" : {
+                        "1" : {
+                            "1" : "Enemy grouping definition pointer",
+                            "2" : "Enemy spawn count",
+                            "4" : "Max simultaneous spawns"
+                        },
                     }
                 }
             }
         },
         "2" : "Enemy group definitions",
         "3" : "Survival map configs",
-        "5" : "Survival perk definitions",
+        "5" : {
+            "name" : "Survival perk definitions",
+            "*" : {
+                "4" : {
+                    "1" : "(Initial) Strength/% of perk"
+                },
+                "7" : "Perk name",
+                "8" : "Localizable title string",
+                "9" : "Localizable description string - line 1",
+                "10" : "Localizable description string - line 2",
+                "13" : {
+                    "name" : "Subsequent pickup strengths",
+                    "*" : {
+                        "1" : "(nth pickup) perk strength/%"
+                    }
+                },
+                "17" : "How many times perk can appear",
+                "18" : "Sound effect on pickup",
+                "23" : "Localizable title string",
+            },
+        },
         "27" : "Random crate weapons",
         "48" : {
             "name" : "Random crate pickups",
