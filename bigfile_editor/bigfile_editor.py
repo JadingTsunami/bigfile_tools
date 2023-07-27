@@ -324,7 +324,8 @@ class BigFileGui:
             self.selected_table['message'][w.item(w.focus())['text']] = self.determine_value_type(uid, value)
             self.selected_table['edited'] = True
 
-        w.item(w.focus(), values=(value,))
+        meaning = w.item(w.focus())['values'][1]
+        w.item(w.focus(), values=(value,meaning))
         self.close_ed(w, edwin)
 
     def check_edit(self, tvar, label):
