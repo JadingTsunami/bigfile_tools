@@ -48,7 +48,10 @@ known_types = {
             "*": {
                 "1": "Difficulty name",
                 "4": {
+                    "7" : "Aggro slots", # Credit and thanks to MoonLightFox
+                    "8" : "Enemy activity (higher=more active)", # Credit and thanks to MoonLightFox
                     "13": "Starting lives",
+                    "14": "Required score multiplier for ranks",
                     "19": "Extra life points (story/level select)",
                     "20": "Extra life points (arcade)"
                 }
@@ -89,23 +92,77 @@ known_types = {
                         },
                         "4" : "Hitstop",
                         "5" : "Hitstun",
+                        "9" : "Turnaround on hit",      # Credit and thanks to MoonLightFox
+                        "10" : "Multihit",              # Credit and thanks to MoonLightFox
+                        "11" : "Collision enabled",     # Credit and thanks to MoonLightFox
+                        "12" : "Collision damage (11 must be set)", # Credit and thanks to MoonLightFox
+                        "13" : "Pushback direction",    # Credit and thanks to MoonLightFox
+                        "15" : {
+                            "1" : "Air juggle launch height" # Credit and thanks to MoonLightFox
+                        },
+                        "17" : "Ground bounce count",   # Credit and thanks to MoonLightFox
+                        "20" : {
+                            "1" : "Strength of pushback of airborne enemy (+ toward / - away)" # Credit and thanks to MoonLightFox
+                        },
                         "21" : {
                             "1" : "Sound effect"
                         },
                         "24" : {
                             "1" : "Hit depth"           # Credit and thanks to Bragdras!
                         },
+                        "27" : "Move forward after move", # Credit and thanks to MoonLightFox
+                        "28" : "Recovery/freeze", # Credit and thanks to MoonLightFox
+
+                        "29" : { # Credit and thanks to MoonLightFox
+                            "name" : "Wallbounce properties", # Credit and thanks to MoonLightFox
+                            "2" : "Damage" # Credit and thanks to MoonLightFox
+
+                        },
+
+                        "32" : {
+                            "1" : "Gravity" # Credit and thanks to MoonLightFox
+                        },
+                        "35" : "Ignore weight", # Credit and thanks to MoonLightFox
                         "37": "Ignore OTG limitations", # Credit and thanks to FuzzYetPatchy and MoonLightFox!
-                        "51": "Allow OTG"               # Credit and thanks to FuzzYetPatchy and MoonLightFox!
+                        "41": "Change state of enemy on hit", # Credit and thanks to FuzzYetPatchy and MoonLightFox!
+                        "44": "Increased pushback", # Credit and thanks to FuzzYetPatchy and MoonLightFox!
+                        "51": "Allow OTG",               # Credit and thanks to FuzzYetPatchy and MoonLightFox!
+                        "59": "Enable y-axis hitbox"    # Credit and thanks to MoonLightFox
                     }
                 },
+                "7" : { # Credit and thanks to MoonLightFox for this entire section!
+                    "name" : "Move cancels",
+                    "*" : {
+                        "1" : "Name of the move that will be canceled",
+                        "2" : "Input button",
+                        "3" : "Condition (direction)",
+                        "4" : "Starting frame for cancel",
+                        "5" : "Ending frame for cancel",
+                        "6" : "Disable cancel on whiff",
+                        "9" : "Direction of canceled move (0 - straight)"
+                    }
+                },
+                "14" : "Can move cancel normal hit animation", # Credit and thanks to MoonLightFox
+                "19" : "Move vulnerability: 0-7 (0 – fully vulnerable, 1 – armor before first hit, 2 – armor whole move, 3 – i-frames before first hit, 4 – full i-frames)", # Credit and thanks to MoonLightFox
                 "21" : {
                     "1" : "HP Cost for Move"
+                },
+                "27" : "Can move cancel special animation",
+                "35" : "Incoming damage multiplier during move",
+                "66" : {
+                    "name" : "Alt moves"
                 }
                 # 99.7.2: Maybe: buffer inputs for MoveCondition (FuzzYetPatchy)
                 # 99.7.3: Maybe: buffer inputs for MoveCommand (FuzzYetPatchy)
             }
         }
+    },
+
+    # Credit and thanks to MoonLightFox for this entire table decoding!
+    "DamageAreaData" : {
+        "1" : "Sprite name",
+        "2" : "Hit properties",
+        "3" : "Duration (frames)"
     },
 
     "SurvivalConfigData" : {
