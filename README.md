@@ -8,11 +8,22 @@ Various tools for dealing with the SoR4 bigfile
 
  **BACK UP ALL YOUR DATA BEFORE MAKING ANY CHANGES!!**
 
-## BASIC INSTRUCTIONS
+## SETUP INSTRUCTIONS
 
 **!! IMPORTANT !!**
 
-Run `pip install bbpb` to install the python3 `blackboxprotobuf` module. **Do NOT** run pip install blackboxprotobuf! This will install an incorrect version and you will need to uninstall that version in order for the library to function correctly.
+**Do NOT** run `pip install blackboxprotobuf`!
+**Do NOT** run `pip install bbpb`!
+
+Instead, install the wheel [here](https://github.com/JadingTsunami/blackboxprotobuf/releases/tag/initial_release) which is built for bigfile editing.
+
+1. Download the wheel file (`*.whl`)
+1. Open a terminal and cd into the folder where you downloaded the wheel
+1. Run `pip install name-of-the-file.whl`
+    * Example: `pip install bbpb-1.0.0-py2.py3-none-any.whl`
+
+
+## BASIC INSTRUCTIONS
 
 1. Clone this repo.
 2. Copy your game `bigfile` to a working area of your choice.
