@@ -15,13 +15,11 @@ Various tools for dealing with the SoR4 bigfile
 **Do NOT** run `pip install blackboxprotobuf`!
 **Do NOT** run `pip install bbpb`!
 
-Instead, install the wheel [here](https://github.com/JadingTsunami/blackboxprotobuf/releases/tag/initial_release) which is built for bigfile editing.
+Instead, install the wheel [here](https://github.com/JadingTsunami/blackboxprotobuf/releases/download/initial_release/bbpb-1.0.0-py2.py3-none-any.whl) which is built for bigfile editing.
 
 1. Download the wheel file (`*.whl`)
 1. Open a terminal and cd into the folder where you downloaded the wheel
-1. Run `pip install name-of-the-file.whl`
-    * Example: `pip install bbpb-1.0.0-py2.py3-none-any.whl`
-
+1. Run `pip install bbpb-1.0.0-py2.py3-none-any.whl`
 
 ## BASIC INSTRUCTIONS
 
