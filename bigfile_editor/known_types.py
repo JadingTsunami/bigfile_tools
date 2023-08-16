@@ -73,6 +73,9 @@ known_types = {
     },
 
     "CharacterData" : {
+        "9" : {
+            "1" : "HP"
+        },
         "99": {
             "name": "Moves",
             "*" : {
