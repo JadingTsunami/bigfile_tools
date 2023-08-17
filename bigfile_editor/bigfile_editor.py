@@ -64,13 +64,18 @@ def write7bit(val, of):
             b |= 0x80
         of.write(b.to_bytes(1,"little"))
 
+def fp_to_str(val, fp_bits=16):
+    return str(float(val)/float(pow(2,fp_bits)))
+
+def str_to_fp(val, fp_bits=16):
+    return int(float(val)*float(pow(2,fp_bits)))
+
 class BigFileValueEditDialog:
     def __init__(self, root, parent, value):
         self.edwin = tk.Toplevel(root)
-        self.edwin.protocol("WM_DELETE_WINDOW", lambda: self.close_ed)
-        #self.edwin.wait_visibility()
-        #self.edwin.grab_set()
-        self.edwin.overrideredirect(1)
+        self.edwin.protocol("WM_DELETE_WINDOW", self.close_ed)
+        self.edwin.wait_visibility()
+        self.edwin.grab_set()
         self.edframe = tk.Frame(self.edwin, borderwidth=4, relief='ridge')
 
         width = root.winfo_width()
@@ -79,38 +84,65 @@ class BigFileValueEditDialog:
         y = (height/2)
         self.edwin.geometry('+%d+%d' % (x, y))
 
+        self.edwin.overrideredirect(1)
         self.parent = parent
         self.tvar = tk.StringVar()
         self.lvar = tk.StringVar()
+        self.fp_var = tk.StringVar()
         self.ed = tk.Entry(self.edframe, textvariable=self.tvar)
+        self.fp_ed = tk.Entry(self.edframe, textvariable=self.fp_var)
         self.label = tk.Label(self.edframe, textvariable=self.lvar)
-        self.tvar.trace("w", lambda name, index, mode, sv=self.tvar: self.check_edit(self.tvar, self.lvar))
+        self.tvar.trace("w", self.check_edit)
+        self.fp_var.trace("w", self.check_edit_fp)
         if self.ed:
             self.edframe.pack()
             self.ed.pack()
             self.label.pack()
             self.ed.focus_set()
-        self.edwin.bind('<Return>', lambda e: self.edwin.destroy)
-        self.edwin.bind('<Escape>', lambda e: self.close_ed)
+        self.edwin.bind('<Return>', self.edit_confirm)
+        self.edwin.bind('<Escape>', self.close_ed)
         self.tvar.set(str(value))
         if str(value).isnumeric():
-            self.lvar.set("As 16.16: " + str(float(int(value) / 65536.0)))
+            self.lvar.set("As 16.16 fixed point:")
+            self.fp_var.set(fp_to_str(value))
+            self.fp_ed.pack()
         else:
             self.lvar.set("Original value: " + str(value))
         self.value = value
+        self.uip = False
 
-    def close_ed(self):
+    def edit_confirm(self, event):
+        self.edwin.destroy()
+
+    def close_ed(self, event):
         self.value = None
         self.edwin.destroy()
 
-    def check_edit(self, tvar, label):
-        s = str(tvar.get())
-        if s and s.isnumeric():
-            label.set("As 16.16: " + str(float(int(s) / 65536.0)))
-            self.value = int(s)
+    def check_edit_fp(self, var, index, mode):
+        if self.uip:
+            return
+
+        s = str(self.fp_var.get())
+        if s and s.replace(".","",1).isnumeric():
+            self.value = str_to_fp(s)
+            self.uip = True
+            self.tvar.set(self.value)
+            self.uip = False
         else:
             self.value = s
 
+    def check_edit(self, var, index, mode):
+        if self.uip:
+            return
+
+        s = str(self.tvar.get())
+        if s and s.isnumeric():
+            self.value = int(s)
+            self.uip = True
+            self.fp_var.set(fp_to_str(s))
+            self.uip = False
+        else:
+            self.value = s
 
 class BigFileGui:
     def __init__(self, bfe):
