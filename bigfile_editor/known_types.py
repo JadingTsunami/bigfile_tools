@@ -74,7 +74,23 @@ known_types = {
 
     "CharacterData" : {
         "9" : {
-            "1" : "HP"
+            "1" : "HP (16.16)"
+        },
+        "10" : {
+            "1" : {
+                "1" : "Enemy AI type"
+            }
+        },
+        "12" : {
+            "1" : "Death sound effect"
+        },
+        "13" : "Localizable string name",
+        "14" : {
+            "1" : "Enemy portrait icon"
+        },
+        "34" : {
+            "name" : "Usable Weapons",
+            "*" : "Weapon identifier"
         },
         "99": {
             "name": "Moves",
