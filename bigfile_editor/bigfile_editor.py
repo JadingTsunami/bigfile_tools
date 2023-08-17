@@ -64,6 +64,53 @@ def write7bit(val, of):
             b |= 0x80
         of.write(b.to_bytes(1,"little"))
 
+class BigFileValueEditDialog:
+    def __init__(self, root, parent, value):
+        self.edwin = tk.Toplevel(root)
+        self.edwin.protocol("WM_DELETE_WINDOW", lambda: self.close_ed)
+        #self.edwin.wait_visibility()
+        #self.edwin.grab_set()
+        self.edwin.overrideredirect(1)
+        self.edframe = tk.Frame(self.edwin, borderwidth=4, relief='ridge')
+
+        width = root.winfo_width()
+        height = root.winfo_height()
+        x = (width/2)
+        y = (height/2)
+        self.edwin.geometry('+%d+%d' % (x, y))
+
+        self.parent = parent
+        self.tvar = tk.StringVar()
+        self.lvar = tk.StringVar()
+        self.ed = tk.Entry(self.edframe, textvariable=self.tvar)
+        self.label = tk.Label(self.edframe, textvariable=self.lvar)
+        self.tvar.trace("w", lambda name, index, mode, sv=self.tvar: self.check_edit(self.tvar, self.lvar))
+        if self.ed:
+            self.edframe.pack()
+            self.ed.pack()
+            self.label.pack()
+            self.ed.focus_set()
+        self.edwin.bind('<Return>', lambda e: self.edwin.destroy)
+        self.edwin.bind('<Escape>', lambda e: self.close_ed)
+        self.tvar.set(str(value))
+        if str(value).isnumeric():
+            self.lvar.set("As 16.16: " + str(float(int(value) / 65536.0)))
+        else:
+            self.lvar.set("Original value: " + str(value))
+        self.value = value
+
+    def close_ed(self):
+        self.value = None
+        self.edwin.destroy()
+
+    def check_edit(self, tvar, label):
+        s = str(tvar.get())
+        if s and s.isnumeric():
+            label.set("As 16.16: " + str(float(int(s) / 65536.0)))
+            self.value = int(s)
+        else:
+            self.value = s
+
 
 class BigFileGui:
     def __init__(self, bfe):
@@ -287,10 +334,6 @@ class BigFileGui:
             self.table_uuids[str(s2uid)] = t
             self.tabletree.insert(parent, 'end', s2uid, text=s2)
 
-    def close_ed(self, parent, edwin):
-        parent.focus_set()
-        edwin.destroy()
-
     def determine_value_type(self, uid, value):
         # uid can be used later to compare against
         # typedef, but for now, we have only
@@ -309,8 +352,7 @@ class BigFileGui:
         except ValueError:
             return value
 
-    def set_cell(self, edwin, w, tvar):
-        value = tvar.get()
+    def set_cell(self, w, value):
         uid = self.tree.focus()
         if uid not in self.uuid_lookup:
             uid = self.tree.parent(uid)
@@ -326,48 +368,16 @@ class BigFileGui:
 
         meaning = w.item(w.focus())['values'][1]
         w.item(w.focus(), values=(value,meaning))
-        self.close_ed(w, edwin)
-
-    def check_edit(self, tvar, label):
-        s = str(tvar.get())
-        if s and s.isnumeric():
-            label.set("As 16.16: " + str(float(int(s) / 65536.0)))
 
     def edit_cell(self, e):
         w = e.widget
         if w and len(w.item(w.focus(), 'values')) > 0:
-            edwin = tk.Toplevel(e.widget)
-            edwin.protocol("WM_DELETE_WINDOW", lambda: self.close_ed(w, edwin))
-            edwin.wait_visibility()
-            edwin.grab_set()
-            edwin.overrideredirect(1)
             opt_name = w.focus()
-
-            width = self.root.winfo_width()
-            height = self.root.winfo_height()
-            x = (width/2)
-            y = (height/2)
-            edwin.geometry('+%d+%d' % (x, y))
-
-            edframe = tk.Frame(edwin)
             value = w.item(opt_name, 'values')[0]
-            tvar = tk.StringVar()
-            tvar.set(str(value))
-            lvar = tk.StringVar()
-            if str(value).isnumeric():
-                lvar.set("As 16.16: " + str(float(int(value) / 65536.0)))
-            else:
-                lvar.set("Original value: " + str(value))
-            ed = tk.Entry(edframe, textvariable=tvar)
-            label = tk.Label(edframe, textvariable=lvar)
-            tvar.trace("w", lambda name, index, mode, sv=tvar: self.check_edit(tvar, lvar))
-            if ed:
-                edframe.pack()
-                ed.pack()
-                label.pack()
-                ed.focus_set()
-            edwin.bind('<Return>', lambda e: self.set_cell(edwin, w, tvar))
-            edwin.bind('<Escape>', lambda e: self.close_ed(w, edwin))
+            edit_popup = BigFileValueEditDialog(e.widget, w, value)
+            self.root.wait_window(edit_popup.edwin)
+            if edit_popup.value:
+                self.set_cell(w, edit_popup.value)
 
     # adapted from:
     # https://stackoverflow.com/questions/8574070/python-display-a-dict-of-dicts-using-a-ui-tree-for-the-keys-and-any-other-widg
