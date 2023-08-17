@@ -84,6 +84,7 @@ class BigFileValueEditDialog:
         y = (height/2)
         self.edwin.geometry('+%d+%d' % (x, y))
 
+        self.uip = False
         self.edwin.overrideredirect(1)
         self.parent = parent
         self.tvar = tk.StringVar()
@@ -109,7 +110,6 @@ class BigFileValueEditDialog:
         else:
             self.lvar.set("Original value: " + str(value))
         self.value = value
-        self.uip = False
 
     def edit_confirm(self, event):
         self.edwin.destroy()
