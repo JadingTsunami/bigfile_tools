@@ -1,1 +1,0 @@
-python3 bigfile_editor/bigfile_editor.py

@@ -1,12 +1,17 @@
 # bigfile_tools
 
-Various tools for dealing with the SoR4 bigfile
+Tools for dealing with the SoR4 bigfile:
+
+1. **Bigfile Editor**: Edit fields inside a bigfile.
+2. **Level Editor**: Swap out object, pickup, and enemy spawns in every playable level.
 
 ## !! WARNING !!
 
-**This program does not provide guardrails! You can easily break your game's data and cause it to crash on start-up. Always back up all files and ALL GAME DATA before editing or replacing any files. Use at your own risk!**
+**These programs do not provide guardrails! You can easily break your game's data and cause it to crash on start-up. Always back up all files and ALL GAME DATA before editing or replacing any files. Use at your own risk!**
 
  **BACK UP ALL YOUR DATA BEFORE MAKING ANY CHANGES!!**
+
+# bigfile_editor
 
 ## SETUP INSTRUCTIONS
 
@@ -26,11 +31,10 @@ Instead, install the wheel [here](https://github.com/JadingTsunami/blackboxproto
 1. Clone this repo.
 2. Copy your game `bigfile` to a working area of your choice.
     * Make a backup of your game's `bigfile` just in case!
-3. Load your `bigfile` into the editor and edit.
+3. Launch `bigfile_editor/bigfile_editor.py`
+4. Load your `bigfile` into the editor and edit.
 
-# Tool Summary
-
-## bigfile_editor
+## Tool Description
 
 Edits the content of a bigfile. Very WIP.
 
@@ -43,31 +47,15 @@ Only a small amount of game data is annotated at this time, but if the data in a
 
 * **WARNING!!** Editing game data can be unpredictable. The tool uses a "best guess" about the game data, which may or may not result in game crashes, data corruption or loss, and so on. **BACK UP ALL YOUR DATA BEFORE MAKING ANY CHANGES!!**
 
-## level_editor
+# level_editor
+
+Just launch `level_editor/level_editor.py`; it has minimal prerequisites and does not rely on a protobuf library.
 
 Enables swapping out each enemy, pickup, and/or breakable spawn point in each level.
 
 This is *not* the existing swapper: each spawn point is edited individually.
 
 The stage progression can be modified using the [Swapper](https://sourceforge.net/projects/sor4-character-swapper/) or bigfile editor to create fully custom stages. Just import the modified bigfile into the level editor and perform additional swaps. Note you need to know the internal game name for the enemies you replace using this method. But, most of them are self-explanatory.
-
-## compression_tool
-
-`dotnet run --project compression_tool`
-
-Compresses/decompresses a `bigfile`.
-
-If `bigfile.decomp` does not exist in the current working directory, `bigfile` is decompressed into `bigfile.decomp`.
-
-If `bigfile.mod` exists, it is re-compressed as `bigfile.recomp`.
-
-The basic workflow is:
-
-1. Decompress your bigfile (bigfile &rarr; bigfile.decomp)
-2. Copy it to bigfile.mod and modify it as needed.
-3. Recompress your bigfile (bigfile.mod &rarr; bigfile.recomp)
-4. Replace your game bigfile with bigfile.recomp.
-    * Make sure to back up your original bigfile first.
 
 # License
 
