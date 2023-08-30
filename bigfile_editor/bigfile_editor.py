@@ -251,7 +251,7 @@ class BigFileGui:
                 self.set_util_buttons_enabled(True)
                 self.build_table_tree(self.bfe.tables)
             except Exception as e:
-                mb.showerror("Error importing file", "Error importing big file.\nDid you choose the right file?\nException details:\n" + str(e))
+                mb.showerror("Error importing file", "Error importing big file.\nDid you choose the right file?\nException details:\n" + repr(e))
                 self.clear_tables()
                 self.set_util_buttons_enabled(False)
 
@@ -270,7 +270,7 @@ class BigFileGui:
                 else:
                     self.bfe.write_uncompressed_bigfile(ouf)
             except Exception as e:
-                mb.showerror("Error exporting file", "Error exporting bigfile.\nDo you have write permissions and enough drive space?\nException details:\n" + str(e))
+                mb.showerror("Error exporting file", "Error exporting bigfile.\nDo you have write permissions and enough drive space?\nException details:\n" + repr(e))
 
     def set_util_buttons_enabled(self, state):
         for button in self.util_buttons:
