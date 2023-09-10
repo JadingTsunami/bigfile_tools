@@ -41,7 +41,7 @@ known_types = {
             "17": "Shiva3 Character",
             "18": "Estel Character",
             "19": "Max4 Character",
-            "20": "Shiva4 Character",
+            "20": "Shiva4 Character"
         },
         "14" : {
             "name": "Single Player Levels",
